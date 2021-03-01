@@ -28,6 +28,8 @@ var _ = Describe("When following the HyperShift quick-start [PR-Blocking]", func
 	QuickStartSpec(context.TODO(), func() QuickStartSpecInput {
 		input := QuickStartSpecInput{
 			Client: client,
+			ReleaseImage: "quay.io/openshift-release-dev/ocp-release:4.6.17-x86_64",
+
 		}
 		var err error
 		input.PullSecret, err = ioutil.ReadFile(quickStartSpecOptions.PullSecretFile)

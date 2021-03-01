@@ -365,7 +365,7 @@ func (o ExternalInfraCluster) Build() *hyperv1.ExternalInfraCluster {
 		},
 		Spec: hyperv1.ExternalInfraClusterSpec{
 			ComputeReplicas: o.HostedCluster.Spec.InitialComputeReplicas,
-			Region:          o.InfraConfig.Status.PlatformStatus.AWS.Region,
+			Region:          "us-east",
 		},
 	}
 	return eic

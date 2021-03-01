@@ -177,7 +177,7 @@ func (r *NodePoolReconciler) reconcile(ctx context.Context, hcluster *hyperv1.Ho
 	targetNamespace := hcluster.GetName()
 	scalableResource, AWSMachineTemplate, err := generateScalableResources(r, ctx,
 		infra.Status.InfrastructureName,
-		infra.Status.PlatformStatus.AWS.Region,
+		"us-east",
 		nodePool,
 		targetNamespace)
 	if err != nil {

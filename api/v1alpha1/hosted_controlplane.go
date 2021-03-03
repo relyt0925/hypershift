@@ -25,12 +25,15 @@ type HostedControlPlane struct {
 
 // HostedControlPlaneSpec defines the desired state of HostedControlPlane
 type HostedControlPlaneSpec struct {
-	ReleaseImage  string                      `json:"releaseImage"`
-	PullSecret    corev1.LocalObjectReference `json:"pullSecret"`
-	ServiceCIDR   string                      `json:"serviceCIDR"`
-	PodCIDR       string                      `json:"podCIDR"`
-	SSHKey        corev1.LocalObjectReference `json:"sshKey"`
-	ProviderCreds corev1.LocalObjectReference `json:"providerCreds"`
+	ReleaseImage                    string                      `json:"releaseImage"`
+	PullSecret                      corev1.LocalObjectReference `json:"pullSecret"`
+	ServiceCIDR                     string                      `json:"serviceCIDR"`
+	PodCIDR                         string                      `json:"podCIDR"`
+	SSHKey                          corev1.LocalObjectReference `json:"sshKey"`
+	ProviderCreds                   corev1.LocalObjectReference `json:"providerCreds"`
+	ControlPlaneServiceTypeStrategy string                      `json:"controlPlaneServiceTypeStrategy"`
+	EnabledAssets                   []string                    `json:"enabledAssets"`
+	DisabledAssets                  []string                    `json:"disabledAssets"`
 }
 
 type ConditionType string

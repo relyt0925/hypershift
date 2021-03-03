@@ -46,6 +46,10 @@ type HostedClusterSpec struct {
 
 	ServiceCIDR string `json:"serviceCIDR"`
 	PodCIDR     string `json:"podCIDR"`
+	ControlPlaneServiceTypeStrategy string                      `json:"controlPlaneServiceTypeStrategy"`
+	EnabledAssets                   []string                    `json:"enabledAssets"`
+	DisabledAssets                  []string                    `json:"disabledAssets"`
+
 }
 
 type Release struct {

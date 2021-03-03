@@ -3,49 +3,30 @@
 package e2e
 
 import (
+	"context"
 	"flag"
+	"log"
 	"os"
-	"path/filepath"
+	"os/signal"
+	"syscall"
 	"testing"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	ctrl "sigs.k8s.io/controller-runtime"
-	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	hyperapi "openshift.io/hypershift/api"
 )
 
-// Test suite globals
-var (
-	client ctrlclient.Client
+// GlobalTestContext should be used as the parent context for any test code, and will
+// be cancelled if a SIGINT or SIGTERM is received.
+var GlobalTestContext context.Context
 
-	quickStartSpecOptions QuickStartSpecOptions
-)
+func TestMain(m *testing.M) {
+	ctx, cancel := context.WithCancel(context.Background())
+	GlobalTestContext = ctx
 
-type QuickStartSpecOptions struct {
-	AWSCredentialsFile string
-	PullSecretFile     string
-	SSHKeyFile         string
-	ReleaseImage       string
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		log.Printf("tests received shutdown signal and will be cancelled")
+		cancel()
+	}()
+	flag.Parse()
+	os.Exit(m.Run())
 }
-
-func init() {
-	flag.StringVar(&quickStartSpecOptions.AWSCredentialsFile, "e2e.quick-start.aws-credentials-file", "/Users/tylerlisowski/.aws/credentials", "path to AWS credentials")
-	flag.StringVar(&quickStartSpecOptions.PullSecretFile, "e2e.quick-start.pull-secret-file", "/tmp/pull-secret", "path to pull secret")
-	flag.StringVar(&quickStartSpecOptions.SSHKeyFile, "e2e.quick-start.ssh-key-file", filepath.Join(os.Getenv("HOME"), ".ssh", "id_rsa_loginmultishift.pub"), "path to SSH public key")
-	flag.StringVar(&quickStartSpecOptions.ReleaseImage, "e2e.quick-start.release-image", "quay.io/openshift-release-dev/ocp-release:4.6.17-x86_64", "OCP release image to test")
-}
-
-func TestE2E(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "hypershift-e2e")
-}
-
-var _ = SynchronizedBeforeSuite(func() []byte {
-	kubeClient, err := ctrlclient.New(ctrl.GetConfigOrDie(), ctrlclient.Options{Scheme: hyperapi.Scheme})
-	Expect(err).ShouldNot(HaveOccurred())
-	client = kubeClient
-	return nil
-}, func(data []byte) {
-})

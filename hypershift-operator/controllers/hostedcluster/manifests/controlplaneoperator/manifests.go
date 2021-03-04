@@ -1,7 +1,6 @@
 package controlplaneoperator
 
 import (
-	configv1 "github.com/openshift/api/config/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -334,9 +333,12 @@ func (o HostedControlPlane) Build() *hyperv1.HostedControlPlane {
 			SSHKey: corev1.LocalObjectReference{
 				Name: o.SSHKey.Name,
 			},
-			ServiceCIDR:  o.HostedCluster.Spec.ServiceCIDR,
-			PodCIDR:      o.HostedCluster.Spec.PodCIDR,
+			ServiceCIDR:  o.HostedCluster.Spec.Networking.ServiceCIDR,
+			PodCIDR:      o.HostedCluster.Spec.Networking.PodCIDR,
+			MachineCIDR:  o.HostedCluster.Spec.Networking.MachineCIDR,
 			ReleaseImage: o.HostedCluster.Spec.Release.Image,
+			InfraID:      o.HostedCluster.Spec.InfraID,
+			Platform:     o.HostedCluster.Spec.Platform,
 		},
 	}
 	hcp.Annotations[hostedClusterAnnotation] = ctrlclient.ObjectKeyFromObject(o.HostedCluster).String()
@@ -346,7 +348,6 @@ func (o HostedControlPlane) Build() *hyperv1.HostedControlPlane {
 type ExternalInfraCluster struct {
 	Namespace     *corev1.Namespace
 	HostedCluster *hyperv1.HostedCluster
-	InfraConfig   *configv1.Infrastructure
 }
 
 func (o ExternalInfraCluster) Build() *hyperv1.ExternalInfraCluster {
@@ -364,8 +365,10 @@ func (o ExternalInfraCluster) Build() *hyperv1.ExternalInfraCluster {
 		},
 		Spec: hyperv1.ExternalInfraClusterSpec{
 			ComputeReplicas: o.HostedCluster.Spec.InitialComputeReplicas,
-			Region:          "us-east",
 		},
+	}
+	if o.HostedCluster.Spec.Platform.AWS != nil {
+		eic.Spec.Region = o.HostedCluster.Spec.Platform.AWS.Region
 	}
 	return eic
 }

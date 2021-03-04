@@ -309,10 +309,6 @@ func (r *HostedControlPlaneReconciler) ensureInfrastructure(ctx context.Context,
 	status := InfrastructureStatus{}
 
 	targetNamespace := hcp.GetName()
-	// Ensure that we can run privileged pods
-	if err := ensureVPNSCC(r, hcp, targetNamespace); err != nil {
-		return status, fmt.Errorf("failed to ensure privileged SCC for the new namespace: %w", err)
-	}
 
 	baseDomain, err := clusterBaseDomain(r.Client, ctx, hcp.Name)
 	if err != nil {
@@ -326,13 +322,6 @@ func (r *HostedControlPlaneReconciler) ensureInfrastructure(ctx context.Context,
 		return status, fmt.Errorf("failed to create Kube API service: %w", err)
 	}
 	r.Log.Info("Created Kube API service")
-
-	r.Log.Info("Creating VPN service")
-	vpnService, err := createVPNServerService(r, hcp, targetNamespace)
-	if err != nil {
-		return status, fmt.Errorf("failed to create vpn server service: %w", err)
-	}
-	r.Log.Info("Created VPN service")
 
 	r.Log.Info("Creating Openshift API service")
 	openshiftAPIService, err := createOpenshiftService(r, hcp, targetNamespace)
@@ -366,24 +355,23 @@ func (r *HostedControlPlaneReconciler) ensureInfrastructure(ctx context.Context,
 		return status, fmt.Errorf("failed to create ignition route: %w", err)
 	}
 
-	apiAddress, err := getLoadBalancerServiceAddress(r, ctx, client.ObjectKeyFromObject(apiService))
-	if err != nil {
-		return status, fmt.Errorf("failed to get service: %w", err)
-	}
-	status.APIAddress = apiAddress
+	switch hcp.Spec.ControlPlaneServiceTypeStrategy {
+	case "NodePort":
+		status.APIAddress = "preset-api-address"
+		status.OAuthAddress = "preset-api-address"
+	default:
+		apiAddress, err := getLoadBalancerServiceAddress(r, ctx, client.ObjectKeyFromObject(apiService))
+		if err != nil {
+			return status, fmt.Errorf("failed to get service: %w", err)
+		}
+		status.APIAddress = apiAddress
 
-	oauthAddress, err := getLoadBalancerServiceAddress(r, ctx, client.ObjectKeyFromObject(oauthService))
-	if err != nil {
-		return status, fmt.Errorf("failed to get service: %w", err)
+		oauthAddress, err := getLoadBalancerServiceAddress(r, ctx, client.ObjectKeyFromObject(oauthService))
+		if err != nil {
+			return status, fmt.Errorf("failed to get service: %w", err)
+		}
+		status.OAuthAddress = oauthAddress
 	}
-	status.OAuthAddress = oauthAddress
-
-	vpnAddress, err := getLoadBalancerServiceAddress(r, ctx, client.ObjectKeyFromObject(vpnService))
-	if err != nil {
-		return status, fmt.Errorf("failed to get service: %w", err)
-	}
-	status.VPNAddress = vpnAddress
-
 	ignitionAddress, err := getRouteAddress(r, ctx, client.ObjectKeyFromObject(ignitionRoute))
 	if err != nil {
 		return status, fmt.Errorf("failed get get route address: %w", err)
@@ -392,6 +380,32 @@ func (r *HostedControlPlaneReconciler) ensureInfrastructure(ctx context.Context,
 
 	status.OpenShiftAPIAddress = openshiftAPIService.Spec.ClusterIP
 	status.OauthAPIServerAddress = oauthAPIService.Spec.ClusterIP
+
+	vpnEnabled := true
+	for _, disabledAsset := range hcp.Spec.DisabledAssets {
+		if disabledAsset == "vpn" {
+			vpnEnabled = false
+		}
+	}
+	if vpnEnabled {
+		// Ensure that we can run privileged pods
+		if err := ensureVPNSCC(r, hcp, targetNamespace); err != nil {
+			return status, fmt.Errorf("failed to ensure privileged SCC for the new namespace: %w", err)
+		}
+
+		r.Log.Info("Creating VPN service")
+		vpnService, err := createVPNServerService(r, hcp, targetNamespace)
+		if err != nil {
+			return status, fmt.Errorf("failed to create vpn server service: %w", err)
+		}
+		r.Log.Info("Created VPN service")
+
+		vpnAddress, err := getLoadBalancerServiceAddress(r, ctx, client.ObjectKeyFromObject(vpnService))
+		if err != nil {
+			return status, fmt.Errorf("failed to get service: %w", err)
+		}
+		status.VPNAddress = vpnAddress
+	}
 
 	return status, nil
 }

@@ -320,8 +320,8 @@ func (o HostedControlPlane) Build() *hyperv1.HostedControlPlane {
 			APIVersion: hyperv1.GroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: o.Namespace.Name,
-			Name:      o.HostedCluster.GetName(),
+			Namespace:   o.Namespace.Name,
+			Name:        o.HostedCluster.GetName(),
 			Annotations: o.HostedCluster.Annotations,
 		},
 		Spec: hyperv1.HostedControlPlaneSpec{
@@ -339,7 +339,7 @@ func (o HostedControlPlane) Build() *hyperv1.HostedControlPlane {
 			ReleaseImage: o.HostedCluster.Spec.Release.Image,
 		},
 	}
-	hcp.Annotations[hostedClusterAnnotation]= ctrlclient.ObjectKeyFromObject(o.HostedCluster).String()
+	hcp.Annotations[hostedClusterAnnotation] = ctrlclient.ObjectKeyFromObject(o.HostedCluster).String()
 	return hcp
 }
 

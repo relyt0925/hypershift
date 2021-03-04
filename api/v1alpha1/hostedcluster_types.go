@@ -44,12 +44,11 @@ type HostedClusterSpec struct {
 
 	ProviderCreds corev1.LocalObjectReference `json:"providerCreds"`
 
-	ServiceCIDR string `json:"serviceCIDR"`
-	PodCIDR     string `json:"podCIDR"`
-	ControlPlaneServiceTypeStrategy string                      `json:"controlPlaneServiceTypeStrategy"`
-	EnabledAssets                   []string                    `json:"enabledAssets"`
-	DisabledAssets                  []string                    `json:"disabledAssets"`
-
+	ServiceCIDR                     string   `json:"serviceCIDR"`
+	PodCIDR                         string   `json:"podCIDR"`
+	ControlPlaneServiceTypeStrategy string   `json:"controlPlaneServiceTypeStrategy"`
+	EnabledAssets                   []string `json:"enabledAssets"`
+	DisabledAssets                  []string `json:"disabledAssets"`
 }
 
 type Release struct {

@@ -655,7 +655,12 @@ func createKubeAPIServerService(client client.Client, hcp *hyperv1.HostedControl
 	svc.Namespace = namespace
 	svc.Name = kubeAPIServerServiceName
 	svc.Spec.Selector = map[string]string{"app": "kube-apiserver"}
-	svc.Spec.Type = corev1.ServiceTypeLoadBalancer
+	switch hcp.Spec.ControlPlaneServiceTypeStrategy {
+	case "NodePort":
+		svc.Spec.Type = corev1.ServiceTypeNodePort
+	default:
+		svc.Spec.Type = corev1.ServiceTypeLoadBalancer
+	}
 	svc.Spec.Ports = []corev1.ServicePort{
 		{
 			Port:       6443,
@@ -677,7 +682,12 @@ func createVPNServerService(client client.Client, hcp *hyperv1.HostedControlPlan
 	svc.Namespace = namespace
 	svc.Name = vpnServiceName
 	svc.Spec.Selector = map[string]string{"app": "openvpn-server"}
-	svc.Spec.Type = corev1.ServiceTypeLoadBalancer
+	switch hcp.Spec.ControlPlaneServiceTypeStrategy {
+	case "NodePort":
+		svc.Spec.Type = corev1.ServiceTypeNodePort
+	default:
+		svc.Spec.Type = corev1.ServiceTypeLoadBalancer
+	}
 	svc.Spec.Ports = []corev1.ServicePort{
 		{
 			Port:       1194,
@@ -749,7 +759,12 @@ func createOauthService(client client.Client, hcp *hyperv1.HostedControlPlane, n
 	svc.Namespace = namespace
 	svc.Name = oauthServiceName
 	svc.Spec.Selector = map[string]string{"app": "oauth-openshift"}
-	svc.Spec.Type = corev1.ServiceTypeLoadBalancer
+	switch hcp.Spec.ControlPlaneServiceTypeStrategy {
+	case "NodePort":
+		svc.Spec.Type = corev1.ServiceTypeNodePort
+	default:
+		svc.Spec.Type = corev1.ServiceTypeLoadBalancer
+	}
 	svc.Spec.Ports = []corev1.ServicePort{
 		{
 			Name:       "https",

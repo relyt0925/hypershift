@@ -357,8 +357,8 @@ func (r *HostedControlPlaneReconciler) ensureInfrastructure(ctx context.Context,
 
 	switch hcp.Spec.ControlPlaneServiceTypeStrategy {
 	case "NodePort":
-		status.APIAddress = "preset-api-address"
-		status.OAuthAddress = "preset-api-address"
+		status.APIAddress = hcp.Spec.ControlPlaneNodePortIngressTrafficDomain
+		status.OAuthAddress = hcp.Spec.ControlPlaneNodePortIngressTrafficDomain
 	default:
 		apiAddress, err := getLoadBalancerServiceAddress(r, ctx, client.ObjectKeyFromObject(apiService))
 		if err != nil {
@@ -383,7 +383,7 @@ func (r *HostedControlPlaneReconciler) ensureInfrastructure(ctx context.Context,
 
 	vpnEnabled := true
 	for _, disabledAsset := range hcp.Spec.DisabledAssets {
-		if disabledAsset == "vpn" {
+		if disabledAsset == "openvpn" {
 			vpnEnabled = false
 		}
 	}

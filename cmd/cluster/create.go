@@ -38,6 +38,10 @@ type Options struct {
 	Region                                 string
 	ControlPlaneServiceTypeNodePortAddress string
 	ControlPlaneServiceType                string
+ServiceCIDR                string
+PodCIDR                    string
+APIServerAdvertisedAddress string
+APIServerSecurePort        uint
 }
 
 func NewCreateCommand() *cobra.Command {
@@ -72,6 +76,10 @@ func NewCreateCommand() *cobra.Command {
 		InstanceType:                           "m4.large",
 		ControlPlaneServiceType:                "",
 		ControlPlaneServiceTypeNodePortAddress: "",
+APIServerAdvertisedAddress: "172.20.0.1",
+ServiceCIDR:                "172.31.0.0/16",
+PodCIDR:                    "10.132.0.0/14",
+APIServerSecurePort:        6443,
 	}
 
 	cmd.Flags().StringVar(&opts.Namespace, "namespace", opts.Namespace, "A namespace to contain the generated resources")
@@ -89,6 +97,10 @@ func NewCreateCommand() *cobra.Command {
 	cmd.Flags().StringVar(&opts.InstanceType, "instance-type", opts.InstanceType, "Instance type for AWS instances.")
 	cmd.Flags().StringVar(&opts.ControlPlaneServiceTypeNodePortAddress, "controlplane-servicetype-nodeport-address", opts.ControlPlaneServiceTypeNodePortAddress, "Address that will expose node port traffic of the controller cluster.")
 	cmd.Flags().StringVar(&opts.ControlPlaneServiceType, "controlplane-servicetype", opts.ControlPlaneServiceType, "Strategy used for exposing control plane services. Currently supports NodePort for nodePorts otherwise defaults to using LoadBalancer services.")
+cmd.Flags().StringVar(&opts.APIServerAdvertisedAddress, "apiserver-advertised-address", opts.APIServerAdvertisedAddress, "Advertised Address for kube api server.")
+cmd.Flags().UintVar(&opts.APIServerSecurePort, "apiserver-secure-port", opts.APIServerSecurePort, "Secure port for API Server.")
+cmd.Flags().StringVar(&opts.PodCIDR, "pod-cidr", opts.PodCIDR, "Pod CIDR for user cluster.")
+cmd.Flags().StringVar(&opts.ServiceCIDR, "service-cidr", opts.ServiceCIDR, "Service CIDR for user cluster.")
 
 	cmd.MarkFlagRequired("pull-secret")
 	cmd.MarkFlagRequired("aws-creds")
@@ -148,6 +160,10 @@ func NewCreateCommand() *cobra.Command {
 			ComputeCIDR:                            infra.ComputeCIDR,
 			ControlPlaneServiceTypeNodePortAddress: opts.ControlPlaneServiceTypeNodePortAddress,
 			ControlPlaneServiceType:                opts.ControlPlaneServiceType,
+PodCIDR:                    opts.PodCIDR,
+ServiceCIDR:                opts.ServiceCIDR,
+APIServerSecurePort:        opts.APIServerSecurePort,
+APIServerAdvertisedAddress: opts.APIServerAdvertisedAddress,
 			AWS: apifixtures.ExampleAWSOptions{
 				Region:          infra.Region,
 				Zone:            infra.Zone,

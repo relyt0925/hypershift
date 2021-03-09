@@ -349,6 +349,8 @@ func (o HostedControlPlane) Build() *hyperv1.HostedControlPlane {
 			Platform:       o.HostedCluster.Spec.Platform,
 			ServiceType:    o.HostedCluster.Spec.ControlPlaneServiceType,
 			ServiceAddress: o.HostedCluster.Spec.ControlPlaneServiceTypeNodePortAddress,
+APIServerSecurePort:        o.HostedCluster.Spec.Networking.APIServerSecurePort,
+APIServerAdvertisedAddress: o.HostedCluster.Spec.Networking.APIServerAdvertisedAddress,
 		},
 	}
 	return hcp

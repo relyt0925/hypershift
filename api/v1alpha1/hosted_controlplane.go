@@ -36,6 +36,8 @@ type HostedControlPlaneSpec struct {
 	Platform       PlatformSpec                `json:"platform"`
 	ServiceType    string                      `json:"serviceType,omitempty"`
 	ServiceAddress string                      `json:"serviceAddress,omitempty"`
+APIServerAdvertisedAddress string                      `json:"apiserverAdvertisedAddress,omitempty"`
+APIServerSecurePort        uint                        `json:"apiserverSecurePort,omitempty"`
 }
 
 type ConditionType string

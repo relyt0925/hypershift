@@ -28,15 +28,17 @@ func (o *ExampleResources) AsObjects() []crclient.Object {
 }
 
 type ExampleOptions struct {
-	Namespace        string
-	Name             string
-	ReleaseImage     string
-	PullSecret       []byte
-	AWSCredentials   []byte
-	SSHKey           []byte
-	NodePoolReplicas int
-	InfraID          string
-	ComputeCIDR      string
+	Namespace                              string
+	Name                                   string
+	ReleaseImage                           string
+	PullSecret                             []byte
+	AWSCredentials                         []byte
+	SSHKey                                 []byte
+	NodePoolReplicas                       int
+	InfraID                                string
+	ComputeCIDR                            string
+	ControlPlaneServiceType                string
+	ControlPlaneServiceTypeNodePortAddress string
 
 	AWS ExampleAWSOptions
 }

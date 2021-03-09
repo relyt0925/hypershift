@@ -579,7 +579,7 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 	params := render.NewClusterParams()
 	params.Namespace = targetNamespace
 	params.ExternalAPIDNSName = infraStatus.APIAddress
-	params.ExternalAPIAddress = DefaultAPIServerIPAddress
+	params.ExternalAPIAddress = hcp.Spec.APIServerAdvertisedAddress
 	externalAPIPort, err := strconv.ParseUint(infraStatus.APIPort, 10, 32)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse API Port: %w", err)
@@ -617,7 +617,7 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 	}
 	params.CloudCredentials = string(cloudCreds.Data["credentials"])
 	params.ProviderCredsSecretName = hcp.Spec.ProviderCreds.Name
-	params.InternalAPIPort = APIServerPort
+	params.InternalAPIPort = hcp.Spec.APIServerSecurePort
 	params.EtcdClientName = "etcd-client"
 	params.NetworkType = "OpenShiftSDN"
 	params.ImageRegistryHTTPSecret = generateImageRegistrySecret()
@@ -648,9 +648,9 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 	if needsPkiSecret {
 		pkiParams := &render.PKIParams{
 			ExternalAPIAddress:         infraStatus.APIAddress,
-			NodeInternalAPIServerIP:    DefaultAPIServerIPAddress,
+			NodeInternalAPIServerIP:    hcp.Spec.APIServerAdvertisedAddress,
 			ExternalAPIPort:            params.ExternalAPIPort,
-			InternalAPIPort:            APIServerPort,
+			InternalAPIPort:            hcp.Spec.APIServerSecurePort,
 			ServiceCIDR:                hcp.Spec.ServiceCIDR,
 			ExternalOauthAddress:       infraStatus.OAuthAddress,
 			IngressSubdomain:           "apps." + baseDomain,
@@ -748,9 +748,9 @@ func createKubeAPIServerService(client client.Client, hcp *hyperv1.HostedControl
 	}
 	svc.Spec.Ports = []corev1.ServicePort{
 		{
-			Port:       6443,
+			Port:       int32(hcp.Spec.APIServerSecurePort),
 			Protocol:   corev1.ProtocolTCP,
-			TargetPort: intstr.FromInt(6443),
+			TargetPort: intstr.FromInt(int(hcp.Spec.APIServerSecurePort)),
 		},
 	}
 	svc.OwnerReferences = ensureHCPOwnerRef(hcp, svc.OwnerReferences)

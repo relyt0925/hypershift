@@ -39,6 +39,10 @@ type ExampleOptions struct {
 	ComputeCIDR                            string
 	ControlPlaneServiceType                string
 	ControlPlaneServiceTypeNodePortAddress string
+	ApiserverAdvertisedAddress             string
+	ApiserverSecurePort                    uint
+	ServiceCIDR                            string
+	PodCIDR                                string
 
 	AWS ExampleAWSOptions
 }
@@ -121,9 +125,11 @@ func (o ExampleOptions) Resources() *ExampleResources {
 			},
 			InitialComputeReplicas: o.NodePoolReplicas,
 			Networking: hyperv1.ClusterNetworking{
-				ServiceCIDR: "172.31.0.0/16",
-				PodCIDR:     "10.132.0.0/14",
-				MachineCIDR: o.ComputeCIDR,
+				ServiceCIDR:                o.ServiceCIDR,
+				PodCIDR:                    o.PodCIDR,
+				MachineCIDR:                o.ComputeCIDR,
+				ApiserverAdvertisedAddress: o.ApiserverAdvertisedAddress,
+				ApiserverSecurePort:        o.ApiserverSecurePort,
 			},
 			InfraID:       o.InfraID,
 			PullSecret:    corev1.LocalObjectReference{Name: pullSecret.Name},

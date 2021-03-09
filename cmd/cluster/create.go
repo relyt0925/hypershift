@@ -93,6 +93,8 @@ func NewCreateCommand() *cobra.Command {
 	cmd.Flags().StringVar(&opts.Region, "region", opts.Region, "Region to use for AWS infrastructure.")
 	cmd.Flags().StringVar(&opts.InfraID, "infra-id", opts.InfraID, "Infrastructure ID to use for AWS resources.")
 	cmd.Flags().StringVar(&opts.InstanceType, "instance-type", opts.InstanceType, "Instance type for AWS instances.")
+	cmd.Flags().StringVar(&opts.ControlPlaneServiceTypeNodePortAddress, "controlplane-servicetype-nodeport-address", opts.ControlPlaneServiceTypeNodePortAddress, "Address that will expose node port traffic of the controller cluster.")
+	cmd.Flags().StringVar(&opts.ControlPlaneServiceType, "controlplane-servicetype", opts.ControlPlaneServiceType, "Strategy used for exposing control plane services. Currently supports NodePort for nodePorts otherwise defaults to using LoadBalancer services.")
 	cmd.Flags().StringVar(&opts.APIServerAdvertisedAddress, "apiserver-advertised-address", opts.APIServerAdvertisedAddress, "Advertised Address for kube api server.")
 	cmd.Flags().UintVar(&opts.APIServerSecurePort, "apiserver-secure-port", opts.APIServerSecurePort, "Secure port for API Server.")
 	cmd.Flags().StringVar(&opts.PodCIDR, "pod-cidr", opts.PodCIDR, "Pod CIDR for user cluster.")

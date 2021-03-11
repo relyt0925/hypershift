@@ -38,6 +38,15 @@ type HostedControlPlaneSpec struct {
 	ServiceAddress             string                      `json:"serviceAddress,omitempty"`
 	APIServerAdvertisedAddress string                      `json:"apiserverAdvertisedAddress,omitempty"`
 	APIServerSecurePort        uint                        `json:"apiserverSecurePort,omitempty"`
+
+	// KubeConfig specifies the name and key for the kubeconfig secret
+	// +optional
+	KubeConfig *KubeconfigSecretRef `json:"kubeconfig,omitempty"`
+}
+
+type KubeconfigSecretRef struct {
+	Name string `json:"name"`
+	Key  string `json:"key"`
 }
 
 type ConditionType string
@@ -106,9 +115,13 @@ type HostedControlPlaneStatus struct {
 	// ReleaseImage is the release image applied to the hosted control plane.
 	ReleaseImage string `json:"releaseImage,omitempty"`
 
+	// lastReleaseImageTransitionTime is the time of the last update to the current
+	// releaseImage property.
+	LastReleaseImageTransitionTime metav1.Time `json:"lastReleaseImageTransitionTime"`
+
 	// KubeConfig is a reference to the secret containing the default kubeconfig
 	// for this control plane.
-	KubeConfig *corev1.LocalObjectReference `json:"kubeConfig,omitempty"`
+	KubeConfig *KubeconfigSecretRef `json:"kubeConfig,omitempty"`
 
 	// Condition contains details for one aspect of the current state of the HostedControlPlane.
 	// Current condition types are: "Available"

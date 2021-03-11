@@ -1,17 +1,15 @@
 package cluster
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/types"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	hyperapi "github.com/openshift/hypershift/api"
 	apifixtures "github.com/openshift/hypershift/api/fixtures"
@@ -21,6 +19,9 @@ import (
 	cr "sigs.k8s.io/controller-runtime"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// NoopReconcile is just a default mutation function that does nothing.
+var NoopReconcile controllerutil.MutateFn = func() error { return nil }
 
 type Options struct {
 	Namespace                              string
@@ -66,7 +67,7 @@ func NewCreateCommand() *cobra.Command {
 		ReleaseImage:                           releaseImage,
 		PullSecretFile:                         "",
 		AWSCredentialsFile:                     "",
-		SSHKeyFile:                             filepath.Join(os.Getenv("HOME"), ".ssh", "id_rsa.pub"),
+		SSHKeyFile:                             "",
 		NodePoolReplicas:                       2,
 		Render:                                 false,
 		InfrastructureJSON:                     "",
@@ -114,9 +115,13 @@ func NewCreateCommand() *cobra.Command {
 		if err != nil {
 			panic(err)
 		}
-		sshKey, err := ioutil.ReadFile(opts.SSHKeyFile)
-		if err != nil {
-			panic(err)
+		var sshKey []byte
+		if len(opts.SSHKeyFile) > 0 {
+			key, err := ioutil.ReadFile(opts.SSHKeyFile)
+			if err != nil {
+				panic(err)
+			}
+			sshKey = key
 		}
 		if len(opts.ReleaseImage) == 0 {
 			return fmt.Errorf("release-image flag is required if default can not be fetched")
@@ -134,7 +139,7 @@ func NewCreateCommand() *cobra.Command {
 		}
 		if infra == nil {
 			infraID := opts.InfraID
-			if len(infraID) == 0 && infra == nil {
+			if len(infraID) == 0 {
 				infraID = generateID(opts.Name)
 			}
 			opt := awsinfra.CreateInfraOptions{
@@ -207,16 +212,12 @@ func apply(ctx context.Context, objects []crclient.Object) error {
 		return fmt.Errorf("failed to create kube client: %w", err)
 	}
 	for _, object := range objects {
-		var objectBytes bytes.Buffer
-		err := hyperapi.YamlSerializer.Encode(object, &objectBytes)
+		key := crclient.ObjectKeyFromObject(object)
+		_, err = controllerutil.CreateOrUpdate(ctx, client, object, NoopReconcile)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create object %q: %w", key, err)
 		}
-		err = client.Patch(ctx, object, crclient.RawPatch(types.ApplyPatchType, objectBytes.Bytes()), crclient.ForceOwnership, crclient.FieldOwner("hypershift"))
-		if err != nil {
-			return err
-		}
-		fmt.Printf("applied %s %s/%s\n", object.GetObjectKind().GroupVersionKind().Kind, object.GetNamespace(), object.GetName())
+		log.Info("applied resource", "key", key)
 	}
 	return nil
 }

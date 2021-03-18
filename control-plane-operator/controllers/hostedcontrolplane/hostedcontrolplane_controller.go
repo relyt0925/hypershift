@@ -84,11 +84,13 @@ type InfrastructureStatus struct {
 	APIAddress              string
 	APIPort                 string
 	OAuthAddress            string
+	OAuthPort               string
 	VPNAddress              string
 	VPNPort                 string
 	OpenShiftAPIAddress     string
 	OauthAPIServerAddress   string
 	IgnitionProviderAddress string
+	IgnitionProviderPort    string
 }
 
 func (s InfrastructureStatus) IsReady() bool {
@@ -369,11 +371,6 @@ func (r *HostedControlPlaneReconciler) ensureInfrastructure(ctx context.Context,
 		return status, fmt.Errorf("failed to ensure privileged SCC for the new namespace: %w", err)
 	}
 
-	baseDomain, err := clusterBaseDomain(r.Client, ctx, hcp.Name)
-	if err != nil {
-		return status, fmt.Errorf("couldn't determine cluster base domain  name: %w", err)
-	}
-
 	// Create Kube APIServer service
 	r.Log.Info("Creating Kube API service")
 	apiService, err := createKubeAPIServerService(r, hcp, targetNamespace)
@@ -404,16 +401,14 @@ func (r *HostedControlPlaneReconciler) ensureInfrastructure(ctx context.Context,
 	r.Log.Info("Created Openshift Oauth API service")
 
 	r.Log.Info("Creating OAuth service")
-	_, err = createOauthService(r, hcp, targetNamespace)
+	oauthService, err := createOauthService(r, hcp, targetNamespace)
 	if err != nil {
 		return status, fmt.Errorf("error creating service for oauth: %w", err)
 	}
 
-	r.Log.Info("Creating oauth server route")
-	oauthRoute := createOauthServerRoute(targetNamespace)
-	oauthRoute.OwnerReferences = ensureHCPOwnerRef(hcp, oauthRoute.OwnerReferences)
-	if err := r.Create(ctx, oauthRoute); err != nil && !apierrors.IsAlreadyExists(err) {
-		return status, fmt.Errorf("failed to create oauth server route: %w", err)
+	machineConfigServerService, err := createMachineConfigServerService(r, hcp, targetNamespace)
+	if err != nil {
+		return status, fmt.Errorf("error creating service for machine-config-server: %w", err)
 	}
 
 	apiAddress, err := getLoadBalancerServiceAddress(r, ctx, client.ObjectKeyFromObject(apiService))
@@ -421,11 +416,15 @@ func (r *HostedControlPlaneReconciler) ensureInfrastructure(ctx context.Context,
 		return status, fmt.Errorf("failed to get service: %w", err)
 	}
 
-	oauthAddress, err := getRouteAddress(r, ctx, client.ObjectKeyFromObject(oauthRoute))
+	oauthAddress, err := getLoadBalancerServiceAddress(r, ctx, client.ObjectKeyFromObject(oauthService))
 	if err != nil {
-		return status, fmt.Errorf("failed get get route address: %w", err)
+		return status, fmt.Errorf("failed to get service: %w", err)
 	}
-	status.OAuthAddress = oauthAddress
+
+	machineConfigServerAddress, err := getLoadBalancerServiceAddress(r, ctx, client.ObjectKeyFromObject(machineConfigServerService))
+	if err != nil {
+		return status, fmt.Errorf("failed to get service: %w", err)
+	}
 
 	vpnAddress, err := getLoadBalancerServiceAddress(r, ctx, client.ObjectKeyFromObject(vpnService))
 	if err != nil {
@@ -439,6 +438,9 @@ func (r *HostedControlPlaneReconciler) ensureInfrastructure(ctx context.Context,
 		status.VPNAddress = hcp.Spec.ServiceAddress
 		status.VPNPort = vpnAddress
 		status.IgnitionProviderAddress = hcp.Spec.ServiceAddress
+		status.IgnitionProviderPort = machineConfigServerAddress
+		status.OAuthAddress = hcp.Spec.ServiceAddress
+		status.OAuthPort = oauthAddress
 	default:
 		status.APIAddress = apiAddress
 		status.APIPort = fmt.Sprint(APIServerPort)
@@ -887,7 +889,7 @@ func createOauthService(client client.Client, hcp *hyperv1.HostedControlPlane, n
 	svc.Namespace = namespace
 	svc.Name = oauthServiceName
 	svc.Spec.Selector = map[string]string{"app": "oauth-openshift"}
-	svc.Spec.Type = corev1.ServiceTypeClusterIP
+	svc.Spec.Type = corev1.ServiceTypeNodePort
 	svc.Spec.Ports = []corev1.ServicePort{
 		{
 			Name:       "https",
@@ -900,6 +902,28 @@ func createOauthService(client client.Client, hcp *hyperv1.HostedControlPlane, n
 	err := client.Create(context.TODO(), svc)
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		return nil, fmt.Errorf("failed to create oauth service: %w", err)
+	}
+	return svc, nil
+}
+
+func createMachineConfigServerService(client client.Client, hcp *hyperv1.HostedControlPlane, namespace string) (*corev1.Service, error) {
+	svc := &corev1.Service{}
+	svc.Namespace = namespace
+	svc.Name = "machine-config-server"
+	svc.Spec.Selector = map[string]string{"app": "machine-config-server"}
+	svc.Spec.Type = corev1.ServiceTypeNodePort
+	svc.Spec.Ports = []corev1.ServicePort{
+		{
+			Name:       "https",
+			Port:       80,
+			Protocol:   corev1.ProtocolTCP,
+			TargetPort: intstr.FromInt(8081),
+		},
+	}
+	svc.OwnerReferences = ensureHCPOwnerRef(hcp, svc.OwnerReferences)
+	err := client.Create(context.TODO(), svc)
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return nil, fmt.Errorf("failed to create machine config server service: %w", err)
 	}
 	return svc, nil
 }

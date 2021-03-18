@@ -10,4 +10,4 @@ spec:
     targetPort: 8081
   selector:
     app: machine-config-server
-  type: ClusterIP
+  type: NodePort

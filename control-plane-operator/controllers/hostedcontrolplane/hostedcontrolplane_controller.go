@@ -409,18 +409,6 @@ func (r *HostedControlPlaneReconciler) ensureInfrastructure(ctx context.Context,
 		return status, fmt.Errorf("error creating service for oauth: %w", err)
 	}
 
-	r.Log.Info("Creating router shard")
-	if err := createIngressController(r, hcp, targetNamespace, baseDomain); err != nil {
-		return status, fmt.Errorf("cannot create router shard: %w", err)
-	}
-
-	r.Log.Info("Creating ignition provider route")
-	ignitionRoute := createIgnitionServerRoute(targetNamespace)
-	ignitionRoute.OwnerReferences = ensureHCPOwnerRef(hcp, ignitionRoute.OwnerReferences)
-	if err := r.Create(ctx, ignitionRoute); err != nil && !apierrors.IsAlreadyExists(err) {
-		return status, fmt.Errorf("failed to create ignition route: %w", err)
-	}
-
 	r.Log.Info("Creating oauth server route")
 	oauthRoute := createOauthServerRoute(targetNamespace)
 	oauthRoute.OwnerReferences = ensureHCPOwnerRef(hcp, oauthRoute.OwnerReferences)
@@ -444,18 +432,13 @@ func (r *HostedControlPlaneReconciler) ensureInfrastructure(ctx context.Context,
 		return status, fmt.Errorf("failed to get service: %w", err)
 	}
 
-	ignitionAddress, err := getRouteAddress(r, ctx, client.ObjectKeyFromObject(ignitionRoute))
-	if err != nil {
-		return status, fmt.Errorf("failed get get route address: %w", err)
-	}
-	status.IgnitionProviderAddress = ignitionAddress
-
 	switch hcp.Spec.ServiceType {
 	case "NodePort":
 		status.APIAddress = hcp.Spec.ServiceAddress
 		status.APIPort = apiAddress
 		status.VPNAddress = hcp.Spec.ServiceAddress
 		status.VPNPort = vpnAddress
+		status.IgnitionProviderAddress = hcp.Spec.ServiceAddress
 	default:
 		status.APIAddress = apiAddress
 		status.APIPort = fmt.Sprint(APIServerPort)
@@ -536,8 +519,18 @@ func (r *HostedControlPlaneReconciler) ensureControlPlane(ctx context.Context, h
 	if combinedCA, ok = hostedClusterConfigOperatorConfigMapData.Data["initial-ca.crt"]; !ok {
 		return fmt.Errorf("could not find node initial-ca.crt in configmap %s", hostedClusterConfigOperatorConfigMapName)
 	}
+	r.Log.Info("Fetching Node Port of service")
+	var machineConfigServerService corev1.Service
+	machineConfigServerServiceName := "machine-config-server"
+	if err := r.Client.Get(ctx, client.ObjectKey{Namespace: targetNamespace, Name: machineConfigServerServiceName}, &machineConfigServerService); err != nil {
+		return fmt.Errorf("failed to get machine config server service %s: %w", machineConfigServerServiceName, err)
+	}
+	if machineConfigServerService.Spec.Ports[0].NodePort <= 0 {
+		return fmt.Errorf("invalid nodeport on machine config server service %s: %w", machineConfigServerServiceName, err)
+	}
 	r.Log.Info("downstream data for userdata fetched. Generating and applying userdata secret.")
-	userDataSecret := generateUserDataSecret(hcp.GetName(), hcp.GetNamespace(), infraStatus.IgnitionProviderAddress, version, nodeBootstrapperTokenData, combinedCA)
+
+	userDataSecret := generateUserDataSecret(hcp.GetName(), hcp.GetNamespace(), infraStatus.IgnitionProviderAddress+":"+strconv.FormatInt(int64(machineConfigServerService.Spec.Ports[0].NodePort), 10), version, nodeBootstrapperTokenData, combinedCA)
 	err = r.Create(ctx, userDataSecret)
 	if apierrors.IsAlreadyExists(err) {
 		err = r.Update(ctx, userDataSecret)

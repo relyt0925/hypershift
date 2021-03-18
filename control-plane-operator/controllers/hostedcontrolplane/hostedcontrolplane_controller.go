@@ -572,13 +572,8 @@ func (r *HostedControlPlaneReconciler) ensureControlPlane(ctx context.Context, h
 		return fmt.Errorf("failed to generate kubeconfigSecret: %w", err)
 	}
 
-	baseDomain, err := clusterBaseDomain(r.Client, ctx, hcp.Name)
-	if err != nil {
-		return fmt.Errorf("couldn't determine cluster base domain  name: %w", err)
-	}
 	r.Log.Info(fmt.Sprintf("Cluster API URL: %s", fmt.Sprintf("https://%s:%d", infraStatus.APIAddress, APIServerPort)))
 	r.Log.Info(fmt.Sprintf("Kubeconfig is available in secret admin-kubeconfig in the %s namespace", hcp.GetNamespace()))
-	r.Log.Info(fmt.Sprintf("Console URL:  %s", fmt.Sprintf("https://console-openshift-console.%s", fmt.Sprintf("apps.%s", baseDomain))))
 	r.Log.Info(fmt.Sprintf("kubeadmin password is available in secret %q in the %s namespace", "kubeadmin-password", targetNamespace))
 
 	return nil
@@ -601,12 +596,9 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 		sshKeyData = data
 	}
 
-	baseDomain, err := clusterBaseDomain(r.Client, ctx, hcp.Name)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't determine cluster base domain  name: %w", err)
-	}
+	baseDomain := "tyler.com"
 	var cloudCreds corev1.Secret
-	err = r.Client.Get(ctx, client.ObjectKey{Namespace: hcp.Namespace, Name: hcp.Spec.ProviderCreds.Name}, &cloudCreds)
+	err := r.Client.Get(ctx, client.ObjectKey{Namespace: hcp.Namespace, Name: hcp.Spec.ProviderCreds.Name}, &cloudCreds)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get provider credentials secret %s: %w", hcp.Spec.ProviderCreds.Name, err)
 	}

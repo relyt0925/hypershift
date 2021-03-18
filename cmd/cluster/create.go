@@ -26,25 +26,25 @@ import (
 var NoopReconcile controllerutil.MutateFn = func() error { return nil }
 
 type Options struct {
-	Namespace          string
-	Name               string
-	ReleaseImage       string
-	PullSecretFile     string
-	AWSCredentialsFile string
-	SSHKeyFile         string
-	NodePoolReplicas   int
-	Render             bool
-	InfraID            string
-	InfrastructureJSON string
-	IAMJSON            string
-	InstanceType       string
-	Region             string
-ControlPlaneServiceTypeNodePortAddress string
-ControlPlaneServiceType                string
-ServiceCIDR                            string
-PodCIDR                                string
-APIServerAdvertisedAddress             string
-APIServerSecurePort                    uint
+	Namespace                              string
+	Name                                   string
+	ReleaseImage                           string
+	PullSecretFile                         string
+	AWSCredentialsFile                     string
+	SSHKeyFile                             string
+	NodePoolReplicas                       int
+	Render                                 bool
+	InfraID                                string
+	InfrastructureJSON                     string
+	IAMJSON                                string
+	InstanceType                           string
+	Region                                 string
+	ControlPlaneServiceTypeNodePortAddress string
+	ControlPlaneServiceType                string
+	ServiceCIDR                            string
+	PodCIDR                                string
+	APIServerAdvertisedAddress             string
+	APIServerSecurePort                    uint
 }
 
 func NewCreateCommand() *cobra.Command {
@@ -64,24 +64,24 @@ func NewCreateCommand() *cobra.Command {
 	}
 
 	opts := Options{
-		Namespace:          "clusters",
-		Name:               "example",
-		ReleaseImage:       releaseImage,
-		PullSecretFile:     "",
-		AWSCredentialsFile: "",
-		SSHKeyFile:         "",
-		NodePoolReplicas:   2,
-		Render:             false,
-		InfrastructureJSON: "",
-		Region:             "us-east-1",
-		InfraID:            "",
-		InstanceType:       "m4.large",
-ControlPlaneServiceType:                "",
-ControlPlaneServiceTypeNodePortAddress: "",
-APIServerAdvertisedAddress:             "172.20.0.1",
-ServiceCIDR:                            "172.31.0.0/16",
-PodCIDR:                                "10.132.0.0/14",
-APIServerSecurePort:                    6443,
+		Namespace:                              "clusters",
+		Name:                                   "example",
+		ReleaseImage:                           releaseImage,
+		PullSecretFile:                         "",
+		AWSCredentialsFile:                     "",
+		SSHKeyFile:                             "",
+		NodePoolReplicas:                       2,
+		Render:                                 false,
+		InfrastructureJSON:                     "",
+		Region:                                 "us-east-1",
+		InfraID:                                "",
+		InstanceType:                           "m4.large",
+		ControlPlaneServiceType:                "",
+		ControlPlaneServiceTypeNodePortAddress: "",
+		APIServerAdvertisedAddress:             "172.20.0.1",
+		ServiceCIDR:                            "172.31.0.0/16",
+		PodCIDR:                                "10.132.0.0/14",
+		APIServerSecurePort:                    6443,
 	}
 
 	cmd.Flags().StringVar(&opts.Namespace, "namespace", opts.Namespace, "A namespace to contain the generated resources")

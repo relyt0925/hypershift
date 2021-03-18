@@ -368,7 +368,7 @@ func (r *HostedControlPlaneReconciler) ensureInfrastructure(ctx context.Context,
 	targetNamespace := hcp.GetNamespace()
 	// Ensure that we can run privileged pods
 	if err := ensureVPNSCC(r, hcp, targetNamespace); err != nil {
-		return status, fmt.Errorf("failed to ensure privileged SCC for the new namespace: %w", err)
+		r.Log.Info("Tyler: Ignoring errors here for demo")
 	}
 
 	// Create Kube APIServer service
@@ -521,18 +521,8 @@ func (r *HostedControlPlaneReconciler) ensureControlPlane(ctx context.Context, h
 	if combinedCA, ok = hostedClusterConfigOperatorConfigMapData.Data["initial-ca.crt"]; !ok {
 		return fmt.Errorf("could not find node initial-ca.crt in configmap %s", hostedClusterConfigOperatorConfigMapName)
 	}
-	r.Log.Info("Fetching Node Port of service")
-	var machineConfigServerService corev1.Service
-	machineConfigServerServiceName := "machine-config-server"
-	if err := r.Client.Get(ctx, client.ObjectKey{Namespace: targetNamespace, Name: machineConfigServerServiceName}, &machineConfigServerService); err != nil {
-		return fmt.Errorf("failed to get machine config server service %s: %w", machineConfigServerServiceName, err)
-	}
-	if machineConfigServerService.Spec.Ports[0].NodePort <= 0 {
-		return fmt.Errorf("invalid nodeport on machine config server service %s: %w", machineConfigServerServiceName, err)
-	}
 	r.Log.Info("downstream data for userdata fetched. Generating and applying userdata secret.")
-
-	userDataSecret := generateUserDataSecret(hcp.GetName(), hcp.GetNamespace(), infraStatus.IgnitionProviderAddress+":"+strconv.FormatInt(int64(machineConfigServerService.Spec.Ports[0].NodePort), 10), version, nodeBootstrapperTokenData, combinedCA)
+	userDataSecret := generateUserDataSecret(hcp.GetName(), hcp.GetNamespace(), infraStatus.IgnitionProviderAddress+":"+infraStatus.IgnitionProviderPort, version, nodeBootstrapperTokenData, combinedCA)
 	err = r.Create(ctx, userDataSecret)
 	if apierrors.IsAlreadyExists(err) {
 		err = r.Update(ctx, userDataSecret)

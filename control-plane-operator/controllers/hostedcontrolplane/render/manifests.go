@@ -260,7 +260,6 @@ func (c *clusterManifestContext) machineConfigServer() {
 		"machine-config-server/machine-config-server-serviceaccount.yaml",
 		"machine-config-server/machine-config-server-rolebinding.yaml",
 		"machine-config-server/machine-config-server-deployment.yaml",
-		"machine-config-server/machine-config-server-service.yaml",
 		"machine-config-server/machine-config-server-secret.yaml",
 		"machine-config-server/machine-config-server-kubeconfig-secret.yaml",
 	)

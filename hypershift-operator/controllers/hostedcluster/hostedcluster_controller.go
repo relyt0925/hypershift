@@ -498,6 +498,10 @@ func reconcileHostedControlPlane(hcp *hyperv1.HostedControlPlane, hcluster *hype
 	hcp.Spec.ServiceCIDR = hcluster.Spec.Networking.ServiceCIDR
 	hcp.Spec.PodCIDR = hcluster.Spec.Networking.PodCIDR
 	hcp.Spec.MachineCIDR = hcluster.Spec.Networking.MachineCIDR
+	hcp.Spec.ServiceAddress = hcluster.Spec.ControlPlaneServiceTypeNodePortAddress
+	hcp.Spec.ServiceType = hcluster.Spec.ControlPlaneServiceType
+	hcp.Spec.APIServerAdvertisedAddress = hcluster.Spec.Networking.APIServerAdvertisedAddress
+	hcp.Spec.APIServerSecurePort = hcluster.Spec.Networking.APIServerSecurePort
 	hcp.Spec.InfraID = hcluster.Spec.InfraID
 	hcp.Spec.Platform = hcluster.Spec.Platform
 	hcp.Spec.KubeConfig = &hyperv1.KubeconfigSecretRef{

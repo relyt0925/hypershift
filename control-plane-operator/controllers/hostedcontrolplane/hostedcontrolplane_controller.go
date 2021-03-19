@@ -680,7 +680,7 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 	}
 	params.CloudCredentials = string(cloudCreds.Data["credentials"])
 	params.ProviderCredsSecretName = hcp.Spec.ProviderCreds.Name
-	params.InternalAPIPort = APIServerPort
+	params.InternalAPIPort = hcp.Spec.APIServerSecurePort
 	params.IssuerURL = hcp.Spec.IssuerURL
 	params.EtcdClientName = "etcd-client"
 	params.NetworkType = "OpenShiftSDN"

@@ -33,23 +33,23 @@ func (o *ExampleResources) AsObjects() []crclient.Object {
 }
 
 type ExampleOptions struct {
-	Namespace        string
-	Name             string
-	ReleaseImage     string
-	PullSecret       []byte
-	AWSCredentials   []byte
-	SigningKey       []byte
-	IssuerURL        string
-	SSHKey           []byte
-	NodePoolReplicas int
-	InfraID          string
-	ComputeCIDR      string
-ControlPlaneServiceType                string
-ControlPlaneServiceTypeNodePortAddress string
-APIServerAdvertisedAddress             string
-APIServerSecurePort                    uint
-ServiceCIDR                            string
-PodCIDR                                string
+	Namespace                              string
+	Name                                   string
+	ReleaseImage                           string
+	PullSecret                             []byte
+	AWSCredentials                         []byte
+	SigningKey                             []byte
+	IssuerURL                              string
+	SSHKey                                 []byte
+	NodePoolReplicas                       int
+	InfraID                                string
+	ComputeCIDR                            string
+	ControlPlaneServiceType                string
+	ControlPlaneServiceTypeNodePortAddress string
+	APIServerAdvertisedAddress             string
+	APIServerSecurePort                    uint
+	ServiceCIDR                            string
+	PodCIDR                                string
 
 	AWS ExampleAWSOptions
 }
@@ -158,14 +158,14 @@ func (o ExampleOptions) Resources() *ExampleResources {
 				APIServerAdvertisedAddress: o.APIServerAdvertisedAddress,
 				APIServerSecurePort:        o.APIServerSecurePort,
 			},
-			InfraID:       o.InfraID,
-			PullSecret:    corev1.LocalObjectReference{Name: pullSecret.Name},
-			ProviderCreds: corev1.LocalObjectReference{Name: awsCredsSecret.Name},
-			SigningKey:    corev1.LocalObjectReference{Name: signingKeySecret.Name},
-			IssuerURL:     o.IssuerURL,
-			SSHKey:        sshKeyReference,
-ControlPlaneServiceType:                o.ControlPlaneServiceType,
-ControlPlaneServiceTypeNodePortAddress: o.ControlPlaneServiceTypeNodePortAddress,
+			InfraID:                                o.InfraID,
+			PullSecret:                             corev1.LocalObjectReference{Name: pullSecret.Name},
+			ProviderCreds:                          corev1.LocalObjectReference{Name: awsCredsSecret.Name},
+			SigningKey:                             corev1.LocalObjectReference{Name: signingKeySecret.Name},
+			IssuerURL:                              o.IssuerURL,
+			SSHKey:                                 sshKeyReference,
+			ControlPlaneServiceType:                o.ControlPlaneServiceType,
+			ControlPlaneServiceTypeNodePortAddress: o.ControlPlaneServiceTypeNodePortAddress,
 			Platform: hyperv1.PlatformSpec{
 				AWS: &hyperv1.AWSPlatformSpec{
 					Region: o.AWS.Region,

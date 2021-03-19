@@ -13,6 +13,7 @@ type ExampleResources struct {
 	Namespace      *corev1.Namespace
 	PullSecret     *corev1.Secret
 	AWSCredentials *corev1.Secret
+	SigningKey     *corev1.Secret
 	SSHKey         *corev1.Secret
 	Cluster        *hyperv1.HostedCluster
 }
@@ -22,6 +23,7 @@ func (o *ExampleResources) AsObjects() []crclient.Object {
 		o.Namespace,
 		o.PullSecret,
 		o.AWSCredentials,
+		o.SigningKey,
 		o.Cluster,
 	}
 	if o.SSHKey != nil {
@@ -31,21 +33,23 @@ func (o *ExampleResources) AsObjects() []crclient.Object {
 }
 
 type ExampleOptions struct {
-	Namespace                              string
-	Name                                   string
-	ReleaseImage                           string
-	PullSecret                             []byte
-	AWSCredentials                         []byte
-	SSHKey                                 []byte
-	NodePoolReplicas                       int
-	InfraID                                string
-	ComputeCIDR                            string
-	ControlPlaneServiceType                string
-	ControlPlaneServiceTypeNodePortAddress string
-	APIServerAdvertisedAddress             string
-	APIServerSecurePort                    uint
-	ServiceCIDR                            string
-	PodCIDR                                string
+	Namespace        string
+	Name             string
+	ReleaseImage     string
+	PullSecret       []byte
+	AWSCredentials   []byte
+	SigningKey       []byte
+	IssuerURL        string
+	SSHKey           []byte
+	NodePoolReplicas int
+	InfraID          string
+	ComputeCIDR      string
+ControlPlaneServiceType                string
+ControlPlaneServiceTypeNodePortAddress string
+APIServerAdvertisedAddress             string
+APIServerSecurePort                    uint
+ServiceCIDR                            string
+PodCIDR                                string
 
 	AWS ExampleAWSOptions
 }
@@ -58,6 +62,7 @@ type ExampleAWSOptions struct {
 	SecurityGroupID string
 	InstanceProfile string
 	InstanceType    string
+	Roles           []hyperv1.AWSRoleCredentials
 }
 
 func (o ExampleOptions) Resources() *ExampleResources {
@@ -96,6 +101,20 @@ func (o ExampleOptions) Resources() *ExampleResources {
 		},
 		Data: map[string][]byte{
 			"credentials": o.AWSCredentials,
+		},
+	}
+
+	signingKeySecret := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: corev1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace.Name,
+			Name:      o.Name + "-signing-key",
+		},
+		Data: map[string][]byte{
+			"key": o.SigningKey,
 		},
 	}
 
@@ -139,15 +158,18 @@ func (o ExampleOptions) Resources() *ExampleResources {
 				APIServerAdvertisedAddress: o.APIServerAdvertisedAddress,
 				APIServerSecurePort:        o.APIServerSecurePort,
 			},
-			InfraID:                                o.InfraID,
-			PullSecret:                             corev1.LocalObjectReference{Name: pullSecret.Name},
-			ProviderCreds:                          corev1.LocalObjectReference{Name: awsCredsSecret.Name},
-			SSHKey:                                 sshKeyReference,
-			ControlPlaneServiceType:                o.ControlPlaneServiceType,
-			ControlPlaneServiceTypeNodePortAddress: o.ControlPlaneServiceTypeNodePortAddress,
+			InfraID:       o.InfraID,
+			PullSecret:    corev1.LocalObjectReference{Name: pullSecret.Name},
+			ProviderCreds: corev1.LocalObjectReference{Name: awsCredsSecret.Name},
+			SigningKey:    corev1.LocalObjectReference{Name: signingKeySecret.Name},
+			IssuerURL:     o.IssuerURL,
+			SSHKey:        sshKeyReference,
+ControlPlaneServiceType:                o.ControlPlaneServiceType,
+ControlPlaneServiceTypeNodePortAddress: o.ControlPlaneServiceTypeNodePortAddress,
 			Platform: hyperv1.PlatformSpec{
 				AWS: &hyperv1.AWSPlatformSpec{
 					Region: o.AWS.Region,
+					Roles:  o.AWS.Roles,
 					VPC:    o.AWS.VPCID,
 					NodePoolDefaults: &hyperv1.AWSNodePoolPlatform{
 						InstanceType:    o.AWS.InstanceType,
@@ -169,6 +191,7 @@ func (o ExampleOptions) Resources() *ExampleResources {
 		Namespace:      namespace,
 		PullSecret:     pullSecret,
 		AWSCredentials: awsCredsSecret,
+		SigningKey:     signingKeySecret,
 		SSHKey:         sshKeySecret,
 		Cluster:        cluster,
 	}

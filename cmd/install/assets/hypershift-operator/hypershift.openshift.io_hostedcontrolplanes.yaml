@@ -43,6 +43,8 @@ spec:
                 type: integer
               infraID:
                 type: string
+              issuerURL:
+                type: string
               kubeconfig:
                 description: KubeConfig specifies the name and key for the kubeconfig secret
                 properties:
@@ -140,6 +142,21 @@ spec:
                       region:
                         description: Region is the AWS region for the cluster
                         type: string
+                      roles:
+                        items:
+                          properties:
+                            arn:
+                              type: string
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                          required:
+                          - arn
+                          - name
+                          - namespace
+                          type: object
+                        type: array
                       serviceEndpoints:
                         description: ServiceEndpoints list contains custom endpoints which will override default service endpoint of AWS Services. There must be only one ServiceEndpoint for a service.
                         items:
@@ -187,8 +204,13 @@ spec:
                 type: string
               serviceCIDR:
                 type: string
-              serviceType:
-                type: string
+              signingKey:
+                description: LocalObjectReference contains enough information to let you locate the referenced object inside the same namespace.
+                properties:
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                    type: string
+                type: object
               sshKey:
                 description: LocalObjectReference contains enough information to let you locate the referenced object inside the same namespace.
                 properties:
@@ -198,6 +220,7 @@ spec:
                 type: object
             required:
             - infraID
+            - issuerURL
             - machineCIDR
             - platform
             - podCIDR
@@ -205,6 +228,7 @@ spec:
             - pullSecret
             - releaseImage
             - serviceCIDR
+            - signingKey
             - sshKey
             type: object
           status:

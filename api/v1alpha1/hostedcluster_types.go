@@ -23,6 +23,10 @@ type HostedClusterSpec struct {
 	// workers. It should have an ".dockerconfigjson" key containing the pull secret JSON.
 	PullSecret corev1.LocalObjectReference `json:"pullSecret"`
 
+	SigningKey corev1.LocalObjectReference `json:"signingKey"`
+
+	IssuerURL string `json:"issuerURL"`
+
 	SSHKey corev1.LocalObjectReference `json:"sshKey"`
 
 	// ProviderCreds is a reference to a secret containing cloud account info
@@ -70,6 +74,14 @@ type AWSPlatformSpec struct {
 	// There must be only one ServiceEndpoint for a service.
 	// +optional
 	ServiceEndpoints []AWSServiceEndpoint `json:"serviceEndpoints,omitempty"`
+
+	Roles []AWSRoleCredentials `json:"roles,omitempty"`
+}
+
+type AWSRoleCredentials struct {
+	ARN       string `json:"arn"`
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
 }
 
 // AWSServiceEndpoint stores the configuration for services to

@@ -47,6 +47,7 @@ import (
 	hyperv1 "github.com/openshift/hypershift/api/v1alpha1"
 	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/render"
 	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/render/pki"
+	pkiutil "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/render/pki/util"
 	"github.com/openshift/hypershift/control-plane-operator/releaseinfo"
 )
 
@@ -494,6 +495,18 @@ func (r *HostedControlPlaneReconciler) ensureControlPlane(ctx context.Context, h
 		return fmt.Errorf("failed to generate targetPullSecret: %v", err)
 	}
 
+	if hcp.Spec.Platform.AWS != nil {
+		for _, role := range hcp.Spec.Platform.AWS.Roles {
+			targetCredentialsSecret, err := generateTargetCredentialsSecret(r.Scheme(), role, targetNamespace)
+			if err != nil {
+				return fmt.Errorf("failed to create credentials secret manifest for target cluster: %w", err)
+			}
+			if err := r.Create(ctx, targetCredentialsSecret); err != nil && !apierrors.IsAlreadyExists(err) {
+				return fmt.Errorf("failed to generate roleSecret: %v", err)
+			}
+		}
+	}
+
 	manifests, err := r.generateControlPlaneManifests(ctx, hcp, infraStatus, releaseImage)
 	if err != nil {
 		return err
@@ -667,7 +680,8 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 	}
 	params.CloudCredentials = string(cloudCreds.Data["credentials"])
 	params.ProviderCredsSecretName = hcp.Spec.ProviderCreds.Name
-	params.InternalAPIPort = hcp.Spec.APIServerSecurePort
+	params.InternalAPIPort = APIServerPort
+	params.IssuerURL = hcp.Spec.IssuerURL
 	params.EtcdClientName = "etcd-client"
 	params.NetworkType = "OpenShiftSDN"
 	params.ImageRegistryHTTPSecret = generateImageRegistrySecret()
@@ -735,6 +749,26 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 	if !hasPullSecretData {
 		return nil, fmt.Errorf("pull secret %s is missing the .dockerconfigjson key", hcp.Spec.PullSecret.Name)
 	}
+
+	var signingKeySecret corev1.Secret
+	if err := r.Client.Get(ctx, client.ObjectKey{Namespace: hcp.GetNamespace(), Name: hcp.Spec.SigningKey.Name}, &signingKeySecret); err != nil {
+		return nil, fmt.Errorf("failed to get signing key %s: %w", hcp.Spec.SigningKey.Name, err)
+	}
+	signingKeySecretData, hasSigningKeySecretData := signingKeySecret.Data["key"]
+	if !hasSigningKeySecretData {
+		return nil, fmt.Errorf("signing key secret %s is missing the key key", hcp.Spec.SigningKey.Name)
+	}
+	privKey, err := pkiutil.PemToPrivateKey(signingKeySecretData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to PEM decode private key %s: %w", hcp.Spec.SigningKey.Name, err)
+	}
+	pubPEMKey, err := pkiutil.PublicKeyToPem(&privKey.PublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to PEM encode public key %s: %w", hcp.Spec.SigningKey.Name, err)
+	}
+	pkiSecret.Data["service-account.key"] = signingKeySecretData
+	pkiSecret.Data["service-account.pub"] = pubPEMKey
+
 	manifests, err := render.RenderClusterManifests(params, releaseImage, pullSecretData, pkiSecret.Data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render hypershift manifests for cluster: %w", err)
@@ -751,6 +785,7 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 		ExtraFeatureGates:       params.ExtraFeatureGates,
 		IngressSubdomain:        params.IngressSubdomain,
 		InternalAPIPort:         params.InternalAPIPort,
+		IssuerURL:               params.IssuerURL,
 		NamedCerts:              params.NamedCerts,
 		PKI:                     pkiSecret.Data,
 		APIAvailabilityPolicy:   render.KubeAPIServerParamsAvailabilityPolicy(params.APIAvailabilityPolicy),
@@ -1110,6 +1145,29 @@ func generateTargetPullSecret(scheme *runtime.Scheme, data []byte, namespace str
 	configMap := &corev1.ConfigMap{}
 	configMap.Namespace = namespace
 	configMap.Name = "user-manifest-pullsecret"
+	configMap.Data = map[string]string{"data": string(secretBytes)}
+	return configMap, nil
+}
+
+const awsCredentialsTemplate = `[default]
+role_arn = %s
+web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token
+`
+
+func generateTargetCredentialsSecret(scheme *runtime.Scheme, creds hyperv1.AWSRoleCredentials, namespace string) (*corev1.ConfigMap, error) {
+	secret := &corev1.Secret{}
+	secret.Name = creds.Name
+	secret.Namespace = creds.Namespace
+	credentials := fmt.Sprintf(awsCredentialsTemplate, creds.ARN)
+	secret.Data = map[string][]byte{"credentials": []byte(credentials)}
+	secret.Type = corev1.SecretTypeOpaque
+	secretBytes, err := runtime.Encode(serializer.NewCodecFactory(scheme).LegacyCodec(corev1.SchemeGroupVersion), secret)
+	if err != nil {
+		return nil, err
+	}
+	configMap := &corev1.ConfigMap{}
+	configMap.Namespace = namespace
+	configMap.Name = fmt.Sprintf("user-manifest-%s-%s", creds.Namespace, creds.Name)
 	configMap.Data = map[string]string{"data": string(secretBytes)}
 	return configMap, nil
 }

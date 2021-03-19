@@ -57,6 +57,8 @@ spec:
                 type: string
               initialComputeReplicas:
                 type: integer
+              issuerURL:
+                type: string
               networking:
                 description: Networking contains network-specific settings for this cluster
                 properties:
@@ -159,6 +161,21 @@ spec:
                       region:
                         description: Region is the AWS region for the cluster
                         type: string
+                      roles:
+                        items:
+                          properties:
+                            arn:
+                              type: string
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                          required:
+                          - arn
+                          - name
+                          - namespace
+                          type: object
+                        type: array
                       serviceEndpoints:
                         description: ServiceEndpoints list contains custom endpoints which will override default service endpoint of AWS Services. There must be only one ServiceEndpoint for a service.
                         items:
@@ -207,6 +224,13 @@ spec:
                 required:
                 - image
                 type: object
+              signingKey:
+                description: LocalObjectReference contains enough information to let you locate the referenced object inside the same namespace.
+                properties:
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                    type: string
+                type: object
               sshKey:
                 description: LocalObjectReference contains enough information to let you locate the referenced object inside the same namespace.
                 properties:
@@ -216,11 +240,13 @@ spec:
                 type: object
             required:
             - initialComputeReplicas
+            - issuerURL
             - networking
             - platform
             - providerCreds
             - pullSecret
             - release
+            - signingKey
             - sshKey
             type: object
           status:

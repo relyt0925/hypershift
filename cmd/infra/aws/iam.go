@@ -21,6 +21,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 
 	jose "gopkg.in/square/go-jose.v2"
+
+	hyperv1 "github.com/openshift/hypershift/api/v1alpha1"
 )
 
 const (
@@ -192,8 +194,8 @@ func (o *CreateIAMOptions) CreateOIDCResources(iamClient iamiface.IAMAPI, s3Clie
 
 	bucketName := o.InfraID
 	issuerURL := fmt.Sprintf("s3.%s.amazonaws.com/%s", o.Region, bucketName)
-	output.IssuerURL = issuerURL
 	issuerURLWithProto := fmt.Sprintf("https://%s", issuerURL)
+	output.IssuerURL = issuerURLWithProto
 
 	_, err = s3Client.CreateBucket(&s3.CreateBucketInput{
 		Bucket: aws.String(bucketName),
@@ -271,23 +273,37 @@ func (o *CreateIAMOptions) CreateOIDCResources(iamClient iamiface.IAMAPI, s3Clie
 
 	oidcTrustPolicy := fmt.Sprintf(oidcTrustPolicyTemplate, providerARN, issuerURL)
 
+	// TODO: The policies and secrets for these roles can be extracted from the
+	// release payload, avoiding this current hardcoding.
 	arn, err := o.CreateOIDCRole(iamClient, "openshift-ingress", oidcTrustPolicy, ingressPermPolicy)
 	if err != nil {
 		return nil, err
 	}
-	output.IngressRoleARN = arn
+	output.Roles = append(output.Roles, hyperv1.AWSRoleCredentials{
+		ARN:       arn,
+		Namespace: "openshift-ingress-operator",
+		Name:      "cloud-credentials",
+	})
 
 	arn, err = o.CreateOIDCRole(iamClient, "openshift-image-registry", oidcTrustPolicy, imageRegistryPermPolicy)
 	if err != nil {
 		return nil, err
 	}
-	output.ImageRegistryRoleARN = arn
+	output.Roles = append(output.Roles, hyperv1.AWSRoleCredentials{
+		ARN:       arn,
+		Namespace: "openshift-image-registry",
+		Name:      "installer-cloud-credentials",
+	})
 
 	arn, err = o.CreateOIDCRole(iamClient, "aws-ebs-csi-driver-operator", oidcTrustPolicy, awsEBSCSIPermPolicy)
 	if err != nil {
 		return nil, err
 	}
-	output.AWSEBSCSIRoleARN = arn
+	output.Roles = append(output.Roles, hyperv1.AWSRoleCredentials{
+		ARN:       arn,
+		Namespace: "openshift-cluster-csi-drivers",
+		Name:      "ebs-cloud-credentials",
+	})
 
 	return output, nil
 }

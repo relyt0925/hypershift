@@ -11,6 +11,17 @@ func init() {
 	SchemeBuilder.Register(&HostedCluster{}, &HostedClusterList{})
 }
 
+type ControlPlanePublishingStrategyType string
+
+const (
+	// LoadBalancerService publishes the ingress controller using a Kubernetes
+	// LoadBalancer Service.
+	LoadBalancerStrategyType ControlPlanePublishingStrategyType = "LoadBalancer"
+
+	// NodePortService publishes the ingress controller using a Kubernetes NodePort .
+	NodePortStrategyType ControlPlanePublishingStrategyType = "NodePort"
+)
+
 // HostedClusterSpec defines the desired state of HostedCluster
 type HostedClusterSpec struct {
 
@@ -39,7 +50,41 @@ type HostedClusterSpec struct {
 
 	// DNS configuration for the cluster
 	DNS DNSSpec `json:"dns,omitempty"`
+
+	PublishingStrategy ControlPlanePublishingStrategy
 }
+
+type ControlPlanePublishingStrategy struct {
+	Type ControlPlanePublishingStrategyType `json:"type"`
+
+	LoadBalancer *LoadBalancerPublishingStrategy `json:"loadBalancer,omitempty"`
+
+	NodePort *NodePortPublishingStrategy `json:"nodePort,omitempty"`
+}
+
+type LoadBalancerPublishingStrategy struct {
+	//TODO: Implement when needed
+}
+
+type NodePortPublishingStrategy struct {
+	Host string
+	ServicePorts []ServicePortMapping
+}
+
+type ServiceNameType string
+
+const (
+	// LoadBalancerService publishes the ingress controller using a Kubernetes
+	// LoadBalancer Service.
+	KubeAPIServerServiceName ServiceNameType = "kube-apiserver"
+)
+
+
+type ServicePortMapping struct {
+	Service ServiceNameType // where this is an enum of KubeAPI, VPN, etc
+	Port int32
+}
+
 
 // DNSSpec specifies the DNS configuration in the cluster
 type DNSSpec struct {

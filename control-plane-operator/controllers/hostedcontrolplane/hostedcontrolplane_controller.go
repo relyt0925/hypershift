@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	errors2 "github.com/pkg/errors"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"math/big"
 	"math/rand"
@@ -69,6 +70,7 @@ const (
 	oauthBrandingManifest      = "v4-0-config-system-branding.yaml"
 	DefaultAPIServerIPAddress  = "172.20.0.1"
 	externalOauthPort          = 443
+	vpnServicePort             = 1194
 
 	etcdOperatorImage          = "quay.io/coreos/etcd-operator:v0.9.4"
 	etcdVersion                = "3.4.9"
@@ -93,8 +95,11 @@ var NoopReconcile controllerutil.MutateFn = func() error { return nil }
 
 type InfrastructureStatus struct {
 	APIAddress            string
+	APIPort               int32
 	OAuthAddress          string
+	OAuthPort             int32
 	VPNAddress            string
+	VPNPort               int32
 	OpenShiftAPIAddress   string
 	OauthAPIServerAddress string
 }
@@ -102,7 +107,10 @@ type InfrastructureStatus struct {
 func (s InfrastructureStatus) IsReady() bool {
 	return len(s.APIAddress) > 0 &&
 		len(s.OAuthAddress) > 0 &&
-		len(s.VPNAddress) > 0
+		len(s.VPNAddress) > 0 &&
+		s.APIPort > 0 &&
+		s.OAuthPort > 0 &&
+		s.VPNPort > 0
 }
 
 type HostedControlPlaneReconciler struct {
@@ -407,21 +415,133 @@ func (r *HostedControlPlaneReconciler) ensureInfrastructure(ctx context.Context,
 	if err := ensureVPNSCC(r, hcp, targetNamespace); err != nil {
 		return status, fmt.Errorf("failed to ensure privileged SCC for the new namespace: %w", err)
 	}
-
-	// Create Kube APIServer service
-	r.Log.Info("Creating Kube API service")
-	apiService, err := createKubeAPIServerService(r, hcp, targetNamespace)
-	if err != nil {
-		return status, fmt.Errorf("failed to create Kube API service: %w", err)
+	if hcp.Spec.Services == nil {
+		return status, fmt.Errorf("service publishing strategy undefined")
 	}
-	r.Log.Info("Created Kube API service")
+	for _, serviceItr := range hcp.Spec.Services {
+		targetNamespace := hcp.GetNamespace()
+		switch serviceItr.Service {
+		case hyperv1.APIServer:
+			switch serviceItr.ServicePublishingStrategy.Type {
+			case hyperv1.NodePort:
+				if serviceItr.ServicePublishingStrategy.NodePort == nil {
+					return status, fmt.Errorf("nodeport metadata not defined for servicetype: %s", serviceItr.Service)
+				}
+				r.Log.Info("Creating nodePort Kube API service")
+				apiService, err := createKubeAPIServerServiceNodePort(r, hcp, targetNamespace, &status)
+				if err != nil {
+					return status, errors2.Wrap(err, "failed to create Kube API service")
+				}
+				r.Log.Info("Fetching Kube API service nodePort")
+				apiServiceNodePort, err := getFirstNodePort(r, ctx, client.ObjectKeyFromObject(apiService))
+				if err != nil {
+					return status, errors2.Wrap(err, "error getting api service nodeport")
+				}
+				if apiServiceNodePort <= 0 {
+					return status, fmt.Errorf("unexpected value for api service nodeport: %d", apiServiceNodePort)
+				}
+				status.APIPort = apiServiceNodePort
+			case hyperv1.LoadBalancer:
+				r.Log.Info("Creating LoadBalancer Kube API service")
+				apiService, err := createKubeAPIServerService(r, hcp, targetNamespace)
+				if err != nil {
+					return status, errors2.Wrap(err, "failed to create Kube API service")
+				}
 
-	r.Log.Info("Creating VPN service")
-	vpnService, err := createVPNServerService(r, hcp, targetNamespace)
-	if err != nil {
-		return status, fmt.Errorf("failed to create vpn server service: %w", err)
+				r.Log.Info("Fetching Kube API service information")
+				apiAddress, err := getLoadBalancerServiceAddress(r, ctx, client.ObjectKeyFromObject(apiService))
+				if err != nil {
+					return status, errors2.Wrap(err, "error getting api service nodeport")
+				}
+				status.APIAddress = apiAddress
+				status.APIPort = APIServerPort
+			default:
+				return status, fmt.Errorf("unsupported servicetype %s for service: %s", serviceItr.ServicePublishingStrategy.Type, serviceItr.Service)
+			}
+		case hyperv1.VPN:
+			switch serviceItr.ServicePublishingStrategy.Type {
+			case hyperv1.NodePort:
+				if serviceItr.ServicePublishingStrategy.NodePort == nil {
+					return status, fmt.Errorf("nodeport metadata not defined for servicetype: %s", serviceItr.Service)
+				}
+				r.Log.Info("Creating nodePort VPN service")
+				vpnService, err := createVPNServerServiceNodePort(r, hcp, targetNamespace, &status)
+				if err != nil {
+					return status, errors2.Wrap(err, "error creating service for vpn")
+				}
+				r.Log.Info("Fetching VPN service nodePort")
+				vpnServiceNodePort, err := getFirstNodePort(r, ctx, client.ObjectKeyFromObject(vpnService))
+				if err != nil {
+					return status, errors2.Wrap(err, "error getting vpn service nodeport")
+				}
+				if vpnServiceNodePort <= 0 {
+					return status, fmt.Errorf("unexpected value for vpn service nodeport: %d", vpnServiceNodePort)
+				}
+				r.Log.Info("Fetched VPN service nodePort", "nodePort", vpnServiceNodePort)
+				status.VPNPort = vpnServiceNodePort
+			case hyperv1.LoadBalancer:
+				r.Log.Info("Creating VPN service")
+				vpnService, err := createVPNServerService(r, hcp, targetNamespace)
+				if err != nil {
+					return status, errors2.Wrap(err, "error creating service for vpn")
+				}
+				r.Log.Info("Fetching VPN service info")
+				vpnAddress, err := getLoadBalancerServiceAddress(r, ctx, client.ObjectKeyFromObject(vpnService))
+				if err != nil {
+					return status, errors2.Wrap(err, "error getting vpn service nodeport")
+				}
+				status.VPNAddress = vpnAddress
+				status.VPNPort = vpnServicePort
+			default:
+				return status, fmt.Errorf("unsupported servicetype %s for service: %s", serviceItr.ServicePublishingStrategy.Type, serviceItr.Service)
+			}
+		case hyperv1.OAuthServer:
+			switch serviceItr.ServicePublishingStrategy.Type {
+			case hyperv1.NodePort:
+				if serviceItr.ServicePublishingStrategy.NodePort == nil {
+					return status, fmt.Errorf("nodeport metadata not defined for servicetype: %s", serviceItr.Service)
+				}
+				r.Log.Info("Creating nodePort OAuth service")
+				oauthService, err := createOauthServiceNodePort(r, hcp, targetNamespace, &status)
+				if err != nil {
+					return status, errors2.Wrap(err, "error creating service for oauth")
+				}
+				r.Log.Info("Fetching OAuth nodePort")
+				oauthServiceNodePort, err := getFirstNodePort(r, ctx, client.ObjectKeyFromObject(oauthService))
+				if err != nil {
+					return status, errors2.Wrap(err, "error getting oauth service nodeport")
+				}
+				if oauthServiceNodePort <= 0 {
+					return status, fmt.Errorf("unexpected value for oauth service nodeport: %d", oauthServiceNodePort)
+				}
+				r.Log.Info("Fetched OAuth nodePort", "nodePort", oauthServiceNodePort)
+				status.OAuthPort = oauthServiceNodePort
+			case hyperv1.Route:
+				r.Log.Info("Creating OAuth service")
+				_, err := createOauthService(r, hcp, targetNamespace)
+				if err != nil {
+					return status, errors2.Wrap(err, "error creating service for oauth")
+				}
+				r.Log.Info("Creating oauth server route")
+				oauthRoute := createOauthServerRoute(targetNamespace)
+				oauthRoute.OwnerReferences = ensureHCPOwnerRef(hcp, oauthRoute.OwnerReferences)
+				if err := r.Create(ctx, oauthRoute); err != nil && !apierrors.IsAlreadyExists(err) {
+					return status, errors2.Wrap(err, "failed to create oauth server route")
+				}
+				r.Log.Info("Fetching oauth server route information")
+				oauthAddress, err := getRouteAddress(r, ctx, client.ObjectKeyFromObject(oauthRoute))
+				if err != nil {
+					return status, errors2.Wrap(err, "failed get get route address")
+				}
+				status.OAuthAddress = oauthAddress
+				status.OAuthPort = 443
+			default:
+				return status, fmt.Errorf("unsupported servicetype %s for service: %s", serviceItr.ServicePublishingStrategy.Type, serviceItr.Service)
+			}
+		default:
+			return status, fmt.Errorf("unknown service specified: %s", serviceItr.Service)
+		}
 	}
-	r.Log.Info("Created VPN service")
 
 	r.Log.Info("Creating Openshift API service")
 	openshiftAPIService, err := createOpenshiftService(r, hcp, targetNamespace)
@@ -437,36 +557,6 @@ func (r *HostedControlPlaneReconciler) ensureInfrastructure(ctx context.Context,
 	}
 	r.Log.Info("Created Openshift Oauth API service")
 
-	r.Log.Info("Creating OAuth service")
-	_, err = createOauthService(r, hcp, targetNamespace)
-	if err != nil {
-		return status, fmt.Errorf("error creating service for oauth: %w", err)
-	}
-
-	r.Log.Info("Creating oauth server route")
-	oauthRoute := createOauthServerRoute(targetNamespace)
-	oauthRoute.OwnerReferences = ensureHCPOwnerRef(hcp, oauthRoute.OwnerReferences)
-	if err := r.Create(ctx, oauthRoute); err != nil && !apierrors.IsAlreadyExists(err) {
-		return status, fmt.Errorf("failed to create oauth server route: %w", err)
-	}
-
-	apiAddress, err := getLoadBalancerServiceAddress(r, ctx, client.ObjectKeyFromObject(apiService))
-	if err != nil {
-		return status, fmt.Errorf("failed to get service: %w", err)
-	}
-	status.APIAddress = apiAddress
-
-	oauthAddress, err := getRouteAddress(r, ctx, client.ObjectKeyFromObject(oauthRoute))
-	if err != nil {
-		return status, fmt.Errorf("failed get get route address: %w", err)
-	}
-	status.OAuthAddress = oauthAddress
-
-	vpnAddress, err := getLoadBalancerServiceAddress(r, ctx, client.ObjectKeyFromObject(vpnService))
-	if err != nil {
-		return status, fmt.Errorf("failed to get service: %w", err)
-	}
-	status.VPNAddress = vpnAddress
 	status.OpenShiftAPIAddress = openshiftAPIService.Spec.ClusterIP
 	status.OauthAPIServerAddress = oauthAPIService.Spec.ClusterIP
 
@@ -694,12 +784,12 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 	params := render.NewClusterParams()
 	params.Namespace = targetNamespace
 	params.ExternalAPIDNSName = infraStatus.APIAddress
-	params.ExternalAPIPort = APIServerPort
+	params.ExternalAPIPort = uint(infraStatus.APIPort)
 	params.ExternalAPIAddress = DefaultAPIServerIPAddress
 	params.ExternalOpenVPNAddress = infraStatus.VPNAddress
-	params.ExternalOpenVPNPort = 1194
+	params.ExternalOpenVPNPort = uint(infraStatus.VPNPort)
 	params.ExternalOauthDNSName = infraStatus.OAuthAddress
-	params.ExternalOauthPort = externalOauthPort
+	params.ExternalOauthPort = uint(infraStatus.OAuthPort)
 	params.ServiceCIDR = hcp.Spec.ServiceCIDR
 	params.PodCIDR = hcp.Spec.PodCIDR
 	params.MachineCIDR = hcp.Spec.MachineCIDR
@@ -763,9 +853,9 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 		}
 		pkiParams := &render.PKIParams{
 			ExternalAPIAddress:      infraStatus.APIAddress,
-			NodeInternalAPIServerIP: DefaultAPIServerIPAddress,
-			ExternalAPIPort:         APIServerPort,
-			InternalAPIPort:         APIServerPort,
+			NodeInternalAPIServerIP: params.ExternalAPIAddress,
+			ExternalAPIPort:         params.ExternalAPIPort,
+			InternalAPIPort:         params.InternalAPIPort,
 			ServiceCIDR:             hcp.Spec.ServiceCIDR,
 			ExternalOauthAddress:    infraStatus.OAuthAddress,
 			IngressSubdomain:        "apps." + baseDomain,
@@ -893,6 +983,43 @@ func createKubeAPIServerService(client client.Client, hcp *hyperv1.HostedControl
 	return svc, nil
 }
 
+func createKubeAPIServerServiceNodePort(client client.Client, hcp *hyperv1.HostedControlPlane, namespace string, status *InfrastructureStatus) (*corev1.Service, error) {
+	svc := &corev1.Service{}
+	svc.Namespace = namespace
+	svc.Name = kubeAPIServerServiceName
+	svc.Spec.Selector = map[string]string{"app": "kube-apiserver"}
+	svc.Spec.Type = corev1.ServiceTypeNodePort
+	var nodePort int32 = 0
+	if hcp.Spec.Services != nil {
+		for _, servicePortSpecification := range hcp.Spec.Services {
+			if servicePortSpecification.Service == hyperv1.APIServer {
+				if servicePortSpecification.ServicePublishingStrategy.NodePort != nil {
+					status.APIAddress = servicePortSpecification.ServicePublishingStrategy.NodePort.Address
+					if servicePortSpecification.ServicePublishingStrategy.NodePort.Port > 0 {
+						nodePort = servicePortSpecification.ServicePublishingStrategy.NodePort.Port
+					}
+				}
+			}
+		}
+	}
+	svc.Spec.Ports = []corev1.ServicePort{
+		{
+			Port:       6443,
+			Protocol:   corev1.ProtocolTCP,
+			TargetPort: intstr.FromInt(6443),
+		},
+	}
+	if nodePort > 0 {
+		svc.Spec.Ports[0].NodePort = nodePort
+	}
+	svc.OwnerReferences = ensureHCPOwnerRef(hcp, svc.OwnerReferences)
+	err := client.Create(context.TODO(), svc)
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return nil, fmt.Errorf("failed to create create api server service: %w", err)
+	}
+	return svc, nil
+}
+
 func createVPNServerService(client client.Client, hcp *hyperv1.HostedControlPlane, namespace string) (*corev1.Service, error) {
 	svc := &corev1.Service{}
 	svc.Namespace = namespace
@@ -901,9 +1028,9 @@ func createVPNServerService(client client.Client, hcp *hyperv1.HostedControlPlan
 	svc.Spec.Type = corev1.ServiceTypeLoadBalancer
 	svc.Spec.Ports = []corev1.ServicePort{
 		{
-			Port:       1194,
+			Port:       vpnServicePort,
 			Protocol:   corev1.ProtocolTCP,
-			TargetPort: intstr.FromInt(1194),
+			TargetPort: intstr.FromInt(vpnServicePort),
 		},
 	}
 	svc.OwnerReferences = ensureHCPOwnerRef(hcp, svc.OwnerReferences)
@@ -911,6 +1038,43 @@ func createVPNServerService(client client.Client, hcp *hyperv1.HostedControlPlan
 		if !apierrors.IsAlreadyExists(err) {
 			return nil, fmt.Errorf("failed to create vpn server service: %w", err)
 		}
+	}
+	return svc, nil
+}
+
+func createVPNServerServiceNodePort(client client.Client, hcp *hyperv1.HostedControlPlane, namespace string, status *InfrastructureStatus) (*corev1.Service, error) {
+	svc := &corev1.Service{}
+	svc.Namespace = namespace
+	svc.Name = vpnServiceName
+	svc.Spec.Selector = map[string]string{"app": "openvpn-server"}
+	svc.Spec.Type = corev1.ServiceTypeNodePort
+	var nodePort int32 = 0
+	if hcp.Spec.Services != nil {
+		for _, servicePortSpecification := range hcp.Spec.Services {
+			if servicePortSpecification.Service == hyperv1.VPN {
+				if servicePortSpecification.ServicePublishingStrategy.NodePort != nil {
+					status.VPNAddress = servicePortSpecification.ServicePublishingStrategy.NodePort.Address
+					if servicePortSpecification.ServicePublishingStrategy.NodePort.Port > 0 {
+						nodePort = servicePortSpecification.ServicePublishingStrategy.NodePort.Port
+					}
+				}
+			}
+		}
+	}
+	svc.Spec.Ports = []corev1.ServicePort{
+		{
+			Port:       vpnServicePort,
+			Protocol:   corev1.ProtocolTCP,
+			TargetPort: intstr.FromInt(vpnServicePort),
+		},
+	}
+	if nodePort > 0 {
+		svc.Spec.Ports[0].NodePort = nodePort
+	}
+	svc.OwnerReferences = ensureHCPOwnerRef(hcp, svc.OwnerReferences)
+	err := client.Create(context.TODO(), svc)
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return nil, fmt.Errorf("failed to create vpn server service: %w", err)
 	}
 	return svc, nil
 }
@@ -978,6 +1142,44 @@ func createOauthService(client client.Client, hcp *hyperv1.HostedControlPlane, n
 			Protocol:   corev1.ProtocolTCP,
 			TargetPort: intstr.FromInt(6443),
 		},
+	}
+	svc.OwnerReferences = ensureHCPOwnerRef(hcp, svc.OwnerReferences)
+	err := client.Create(context.TODO(), svc)
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return nil, fmt.Errorf("failed to create oauth service: %w", err)
+	}
+	return svc, nil
+}
+
+func createOauthServiceNodePort(client client.Client, hcp *hyperv1.HostedControlPlane, namespace string, status *InfrastructureStatus) (*corev1.Service, error) {
+	svc := &corev1.Service{}
+	svc.Namespace = namespace
+	svc.Name = oauthServiceName
+	svc.Spec.Selector = map[string]string{"app": "oauth-openshift"}
+	svc.Spec.Type = corev1.ServiceTypeNodePort
+	var nodePort int32 = 0
+	if hcp.Spec.Services != nil {
+		for _, servicePortSpecification := range hcp.Spec.Services {
+			if servicePortSpecification.Service == hyperv1.OAuthServer {
+				if servicePortSpecification.ServicePublishingStrategy.NodePort != nil {
+					status.OAuthAddress = servicePortSpecification.ServicePublishingStrategy.NodePort.Address
+					if servicePortSpecification.ServicePublishingStrategy.NodePort.Port > 0 {
+						nodePort = servicePortSpecification.ServicePublishingStrategy.NodePort.Port
+					}
+				}
+			}
+		}
+	}
+	svc.Spec.Ports = []corev1.ServicePort{
+		{
+			Name:       "https",
+			Port:       443,
+			Protocol:   corev1.ProtocolTCP,
+			TargetPort: intstr.FromInt(6443),
+		},
+	}
+	if nodePort > 0 {
+		svc.Spec.Ports[0].NodePort = nodePort
 	}
 	svc.OwnerReferences = ensureHCPOwnerRef(hcp, svc.OwnerReferences)
 	err := client.Create(context.TODO(), svc)
@@ -1079,6 +1281,17 @@ func getLoadBalancerServiceAddress(c client.Client, ctx context.Context, key cli
 		}
 	}
 	return addr, nil
+}
+
+func getFirstNodePort(c client.Client, ctx context.Context, key client.ObjectKey) (int32, error) {
+	svc := &corev1.Service{}
+	if err := c.Get(ctx, key, svc); err != nil {
+		return 0, fmt.Errorf("failed to get service: %w", err)
+	}
+	if len(svc.Spec.Ports) > 0 {
+		return svc.Spec.Ports[0].NodePort, nil
+	}
+	return 0, nil
 }
 
 func getRouteAddress(c client.Client, ctx context.Context, key client.ObjectKey) (string, error) {

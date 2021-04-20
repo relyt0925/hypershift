@@ -55,6 +55,7 @@ func (r *MachineConfigServerReconciler) SetupWithManager(mgr ctrl.Manager) error
 		WithOptions(controller.Options{
 			RateLimiter: workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 10*time.Second),
 		}).
+		WithEventFilter(predicate.AnnotationChangedPredicate{}).
 		WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Build(r)
 	if err != nil {

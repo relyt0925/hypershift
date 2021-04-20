@@ -41,7 +41,7 @@ rules:
 - apiGroups:
     - hypershift.openshift.io/v1alpha1
   resources:
-    - machineconfigserver
+    - machineconfigservers
   verbs:
     - get
     - list

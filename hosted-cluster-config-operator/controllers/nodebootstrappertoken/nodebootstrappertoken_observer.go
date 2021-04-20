@@ -113,8 +113,8 @@ func (r *NodeBootstrapperTokenObserver) Reconcile(_ context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 	controllerLog.Info("Annotating MachineConfigServer CRDs in namespace to evaluate restart")
-	var machineConfigServerList hyperv1.MachineConfigServerList
-	err = r.Client.List(ctx, &machineConfigServerList)
+	var machineConfigServerList = &hyperv1.MachineConfigServerList{}
+	err = r.Client.List(ctx, machineConfigServerList)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

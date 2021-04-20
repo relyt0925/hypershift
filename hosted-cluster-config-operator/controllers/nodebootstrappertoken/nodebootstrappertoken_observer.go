@@ -12,11 +12,11 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeclient "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -33,7 +33,7 @@ const (
 type NodeBootstrapperTokenObserver struct {
 
 	// Client is a client that allows access to the management cluster
-	Client kubeclient.Interface
+	Client client.Client
 
 	// TargetClient is a Kube client for the target cluster
 	TargetClient kubeclient.Interface
@@ -64,7 +64,8 @@ func (r *NodeBootstrapperTokenObserver) Reconcile(_ context.Context, req ctrl.Re
 	nodeBootstrapperTokenBase64 := base64.StdEncoding.EncodeToString(nodeBootstrapperToken)
 
 	controllerLog.Info("Fetching machine config server haproxy template")
-	haproxyTemplateConfigMapData, err := r.Client.CoreV1().ConfigMaps(r.Namespace).Get(ctx, haproxyTemplateConfigmapName, metav1.GetOptions{})
+	var haproxyTemplateConfigMapData v1.ConfigMap
+	err = r.Client.Get(ctx, client.ObjectKey{Namespace: r.Namespace, Name: haproxyTemplateConfigmapName}, &haproxyTemplateConfigMapData)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -75,7 +76,8 @@ func (r *NodeBootstrapperTokenObserver) Reconcile(_ context.Context, req ctrl.Re
 	}
 
 	controllerLog.Info("Fetching machine config server tls info")
-	machineConfigServerSSLCerts, err := r.Client.CoreV1().Secrets(r.Namespace).Get(ctx, machineConfigServerTLSSecret, metav1.GetOptions{})
+	var machineConfigServerSSLCerts v1.Secret
+	err = r.Client.Get(ctx, client.ObjectKey{Namespace: r.Namespace, Name: machineConfigServerTLSSecret}, &machineConfigServerSSLCerts)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -93,24 +95,26 @@ func (r *NodeBootstrapperTokenObserver) Reconcile(_ context.Context, req ctrl.Re
 	haproxyConfigDataHash := calculateHash(haproxyConfigData)
 	controllerLog.Info("Creating/Updating machine config server haproxy secret")
 	haproxyConfigSecret := &v1.Secret{
-		Type: v1.SecretTypeOpaque,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      haproxyConfigSecretName,
 			Namespace: r.Namespace,
 		},
-		Data: map[string][]byte{
+	}
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, haproxyConfigSecret, func() error {
+		haproxyConfigSecret.Type = v1.SecretTypeOpaque
+		haproxyConfigSecret.Data = map[string][]byte{
 			"node-bootstrapper-token": []byte(nodeBootstrapperToken),
 			"haproxy.cfg":             haproxyConfigData,
 			"tls.pem":                 haproxyTLSPem,
-		},
-	}
-	_, err = r.Client.CoreV1().Secrets(r.Namespace).Create(ctx, haproxyConfigSecret, metav1.CreateOptions{})
-	if errors.IsAlreadyExists(err) {
-		_, err = r.Client.CoreV1().Secrets(r.Namespace).Update(ctx, haproxyConfigSecret, metav1.UpdateOptions{})
+		}
+		return nil
+	})
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 	controllerLog.Info("Annotating MachineConfigServer CRDs in namespace to evaluate restart")
 	var machineConfigServerList hyperv1.MachineConfigServerList
-	err = r.Client.Discovery().RESTClient().Get().Namespace(r.Namespace).Resource("machineconfigserver").VersionedParams(&metav1.ListOptions{}, scheme.ParameterCodec).Do(ctx).Into(&machineConfigServerList)
+	err = r.Client.List(ctx, &machineConfigServerList)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -127,7 +131,7 @@ func (r *NodeBootstrapperTokenObserver) Reconcile(_ context.Context, req ctrl.Re
 				machineConfigServer.ObjectMeta.Annotations["haproxy-config-data-checksum"] = haproxyConfigDataHash
 				machineConfigServer.ObjectMeta.Annotations["machine-config-server-tls-key-checksum"] = machineConfigServerTLSKeyHash
 				machineConfigServer.ObjectMeta.Annotations["machine-config-server-tls-cert-checksum"] = machineConfigServerTLSCertHash
-				if err = r.Client.Discovery().RESTClient().Put().Namespace(r.Namespace).Body(&machineConfigServer).Resource("machineconfigserver").VersionedParams(&metav1.UpdateOptions{}, scheme.ParameterCodec).Do(ctx).Into(&machineConfigServer); err != nil {
+				if err = r.Client.Update(ctx, &machineConfigServer); err != nil {
 					return ctrl.Result{}, err
 				}
 				controllerLog.Info("Annotated MachineConfigServer CRD", "name", machineConfigServer.Name)

@@ -3,6 +3,7 @@ package nodebootstrappertoken
 import (
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -26,8 +27,12 @@ func Setup(cfg *operator.HostedClusterConfigOperatorConfig) error {
 func setupNodeBootstrapperTokenObserver(cfg *operator.HostedClusterConfigOperatorConfig) error {
 	informerFactory := cfg.TargetKubeInformersForNamespace(NodeBootstrapperTokenNamespace)
 	serviceAccounts := informerFactory.Core().V1().ServiceAccounts()
+	crdClient, err := client.New(cfg.Config(), client.Options{})
+	if err != nil {
+		return err
+	}
 	reconciler := &NodeBootstrapperTokenObserver{
-		Client:       cfg.KubeClient(),
+		Client:       crdClient,
 		TargetClient: cfg.TargetKubeClient(),
 		Namespace:    cfg.Namespace(),
 		Log:          cfg.Logger().WithName("NodeBootstrapperTokenObserver"),

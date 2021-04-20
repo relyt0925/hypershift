@@ -20,10 +20,10 @@ import (
 )
 
 const (
-	haproxyTemplateConfigmapName       = "machine-config-server-haproxy-config-template"
-	haproxyConfigSecretName            = "machine-config-server-haproxy-config"
-	nodeBootstrapperTokenPrefix        = "node-bootstrapper-token"
-	machineConfigServerTLSSecret       = "machine-config-server"
+	haproxyTemplateConfigmapName = "machine-config-server-haproxy-config-template"
+	haproxyConfigSecretName      = "machine-config-server-haproxy-config"
+	nodeBootstrapperTokenPrefix  = "node-bootstrapper-token"
+	machineConfigServerTLSSecret = "machine-config-server"
 )
 
 // NodeBootstrapperTokenObserver watches the node-bootstrapper service account:
@@ -111,11 +111,11 @@ func (r *NodeBootstrapperTokenObserver) Reconcile(_ context.Context, req ctrl.Re
 	controllerLog.Info("annotating all machineconfigserver resources in namespace to evaluate restart")
 	var machineConfigServerList hyperv1.MachineConfigServerList
 	err = r.Client.Discovery().RESTClient().Get().Namespace(r.Namespace).Resource("machineconfigserver").VersionedParams(&metav1.ListOptions{}, scheme.ParameterCodec).Do(ctx).Into(&machineConfigServerList)
-	if err != nil{
+	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if machineConfigServerList.Items != nil{
-		for _, machineConfigServer := range machineConfigServerList.Items{
+	if machineConfigServerList.Items != nil {
+		for _, machineConfigServer := range machineConfigServerList.Items {
 			if !(machineConfigServer.ObjectMeta.Annotations != nil &&
 				machineConfigServer.ObjectMeta.Annotations["haproxy-config-data-checksum"] == haproxyConfigDataHash &&
 				machineConfigServer.ObjectMeta.Annotations["machine-config-server-tls-key-checksum"] == machineConfigServerTLSKeyHash &&

@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	finalizer = "hypershift.openshift.io/finalizer"
+	finalizer                                = "hypershift.openshift.io/finalizer"
 	haproxyConfigSecretName                  = "machine-config-server-haproxy-config"
 	hostedClusterConfigOperatorConfigMapName = "hosted-cluster-config-operator"
 )
@@ -205,7 +205,7 @@ func (r *MachineConfigServerReconciler) Reconcile(ctx context.Context, req ctrl.
 	return ctrl.Result{}, nil
 }
 
-func (r *MachineConfigServerReconciler) reconcileUserData(ctx context.Context, mcs *hyperv1.MachineConfigServer ) (*ctrl.Result, error){
+func (r *MachineConfigServerReconciler) reconcileUserData(ctx context.Context, mcs *hyperv1.MachineConfigServer) (*ctrl.Result, error) {
 	semversion, err := semver.Parse(mcs.Status.Version)
 	if err != nil {
 		return &ctrl.Result{}, err
@@ -237,11 +237,11 @@ func (r *MachineConfigServerReconciler) reconcileUserData(ctx context.Context, m
 		// Clear any version modifiers for this comparison
 		semversion.Pre = nil
 		semversion.Build = nil
-		if  semversion.GTE(semver.MustParse("4.6.0")) {
+		if semversion.GTE(semver.MustParse("4.6.0")) {
 			userDataValue = []byte(fmt.Sprintf(`{"ignition":{"config":{"merge":[{"source":"https://%s:%d/config/master?token=%s","verification":{}}]},"security": { "tls": { "certificateAuthorities": [ { "source": "data:text/plain;charset=utf-8;base64,%s", "verification":{} } ] } },"timeouts":{},"version":"3.1.0"},"networkd":{},"passwd":{},"storage":{},"systemd":{}}`, mcs.Status.Host, mcs.Status.Port, url.QueryEscape(base64.StdEncoding.EncodeToString(nodeBootstrapperTokenData)), base64.StdEncoding.EncodeToString([]byte(combinedCA))))
-	} else {
-		userDataValue = []byte(fmt.Sprintf(`{"ignition":{"config":{"append":[{"source":"https://%s:%d/config/master?token=%s","verification":{}}]},"security":{ "tls": { "certificateAuthorities": [ { "source": "data:text/plain;charset=utf-8;base64,%s", "verification":{} } ] } },"timeouts":{},"version":"2.2.0"},"networkd":{},"passwd":{},"storage":{},"systemd":{}}`, mcs.Status.Host, mcs.Status.Port, url.QueryEscape(base64.StdEncoding.EncodeToString(nodeBootstrapperTokenData)), base64.StdEncoding.EncodeToString([]byte(combinedCA))))
-	}
+		} else {
+			userDataValue = []byte(fmt.Sprintf(`{"ignition":{"config":{"append":[{"source":"https://%s:%d/config/master?token=%s","verification":{}}]},"security":{ "tls": { "certificateAuthorities": [ { "source": "data:text/plain;charset=utf-8;base64,%s", "verification":{} } ] } },"timeouts":{},"version":"2.2.0"},"networkd":{},"passwd":{},"storage":{},"systemd":{}}`, mcs.Status.Host, mcs.Status.Port, url.QueryEscape(base64.StdEncoding.EncodeToString(nodeBootstrapperTokenData)), base64.StdEncoding.EncodeToString([]byte(combinedCA))))
+		}
 		userDataSecret.Data = map[string][]byte{
 			"disableTemplating": disableTemplatingValue,
 			"value":             userDataValue,
@@ -422,6 +422,7 @@ oc get cm -l ignition-config="true" -n "${NAMESPACE}" --no-headers | awk '{ prin
 				Labels: map[string]string{
 					"app": fmt.Sprintf("machine-config-server-%s", mcs.Name),
 				},
+				Annotations: mcs.Annotations,
 			},
 			Spec: corev1.PodSpec{
 				ServiceAccountName:            sa.Name,
@@ -629,7 +630,6 @@ oc get cm -l ignition-config="true" -n "${NAMESPACE}" --no-headers | awk '{ prin
 							},
 						},
 					},
-
 				},
 			},
 		},

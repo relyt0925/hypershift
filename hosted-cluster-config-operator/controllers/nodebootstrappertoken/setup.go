@@ -1,6 +1,7 @@
 package nodebootstrappertoken
 
 import (
+	"github.com/openshift/hypershift/api"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,7 +28,7 @@ func Setup(cfg *operator.HostedClusterConfigOperatorConfig) error {
 func setupNodeBootstrapperTokenObserver(cfg *operator.HostedClusterConfigOperatorConfig) error {
 	informerFactory := cfg.TargetKubeInformersForNamespace(NodeBootstrapperTokenNamespace)
 	serviceAccounts := informerFactory.Core().V1().ServiceAccounts()
-	crdClient, err := client.New(cfg.Config(), client.Options{})
+	crdClient, err := client.New(cfg.Config(), client.Options{Scheme: api.Scheme})
 	if err != nil {
 		return err
 	}

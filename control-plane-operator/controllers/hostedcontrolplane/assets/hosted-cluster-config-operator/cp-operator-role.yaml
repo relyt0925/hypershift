@@ -38,3 +38,12 @@ rules:
   - update
   - create
   - delete
+- apiGroups:
+    - hypershift.openshift.io/v1alpha1
+  resources:
+    - machineconfigserver
+  verbs:
+    - get
+    - list
+    - patch
+    - update

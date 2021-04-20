@@ -39,7 +39,7 @@ rules:
   - create
   - delete
 - apiGroups:
-    - hypershift.openshift.io/v1alpha1
+    - hypershift.openshift.io
   resources:
     - machineconfigservers
   verbs:

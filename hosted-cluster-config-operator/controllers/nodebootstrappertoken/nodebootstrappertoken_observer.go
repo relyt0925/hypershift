@@ -108,7 +108,7 @@ func (r *NodeBootstrapperTokenObserver) Reconcile(_ context.Context, req ctrl.Re
 	if errors.IsAlreadyExists(err) {
 		_, err = r.Client.CoreV1().Secrets(r.Namespace).Update(ctx, haproxyConfigSecret, metav1.UpdateOptions{})
 	}
-	controllerLog.Info("annotating all machineconfigserver resources in namespace to evaluate restart")
+	controllerLog.Info("Annotating MachineConfigServer CRDs in namespace to evaluate restart")
 	var machineConfigServerList hyperv1.MachineConfigServerList
 	err = r.Client.Discovery().RESTClient().Get().Namespace(r.Namespace).Resource("machineconfigserver").VersionedParams(&metav1.ListOptions{}, scheme.ParameterCodec).Do(ctx).Into(&machineConfigServerList)
 	if err != nil {
@@ -120,7 +120,7 @@ func (r *NodeBootstrapperTokenObserver) Reconcile(_ context.Context, req ctrl.Re
 				machineConfigServer.ObjectMeta.Annotations["haproxy-config-data-checksum"] == haproxyConfigDataHash &&
 				machineConfigServer.ObjectMeta.Annotations["machine-config-server-tls-key-checksum"] == machineConfigServerTLSKeyHash &&
 				machineConfigServer.ObjectMeta.Annotations["machine-config-server-tls-cert-checksum"] == machineConfigServerTLSCertHash) {
-				controllerLog.Info("Annotating MachineConfigServer CRD to trigger update to machine config servers")
+				controllerLog.Info("Annotating MachineConfigServer CRD to trigger update to machine config servers", "name", machineConfigServer.Name)
 				if machineConfigServer.ObjectMeta.Annotations == nil {
 					machineConfigServer.ObjectMeta.Annotations = map[string]string{}
 				}
@@ -130,6 +130,7 @@ func (r *NodeBootstrapperTokenObserver) Reconcile(_ context.Context, req ctrl.Re
 				if err = r.Client.Discovery().RESTClient().Put().Namespace(r.Namespace).Body(&machineConfigServer).Resource("machineconfigserver").VersionedParams(&metav1.UpdateOptions{}, scheme.ParameterCodec).Do(ctx).Into(&machineConfigServer); err != nil {
 					return ctrl.Result{}, err
 				}
+				controllerLog.Info("Annotated MachineConfigServer CRD", "name", machineConfigServer.Name)
 			}
 		}
 	}

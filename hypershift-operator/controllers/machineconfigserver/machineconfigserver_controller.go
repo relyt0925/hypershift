@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/blang/semver"
+	"net/url"
 	"time"
 
-	"github.com/blang/semver"
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
 	hyperv1 "github.com/openshift/hypershift/api/v1alpha1"
@@ -28,7 +29,9 @@ import (
 )
 
 const (
-	finalizer = "hypershift.openshift.io/finalizer"
+	finalizer                                = "hypershift.openshift.io/finalizer"
+	haproxyConfigSecretName                  = "machine-config-server-haproxy-config"
+	hostedClusterConfigOperatorConfigMapName = "hosted-cluster-config-operator"
 )
 
 var NoopReconcile controllerutil.MutateFn = func() error { return nil }
@@ -52,7 +55,7 @@ func (r *MachineConfigServerReconciler) SetupWithManager(mgr ctrl.Manager) error
 		WithOptions(controller.Options{
 			RateLimiter: workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 10*time.Second),
 		}).
-		WithEventFilter(predicate.GenerationChangedPredicate{}).
+		WithEventFilter(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{})).
 		Build(r)
 	if err != nil {
 		return fmt.Errorf("failed setting up with a controller manager %w", err)
@@ -187,16 +190,47 @@ func (r *MachineConfigServerReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	r.Log.Info("Creating userdata secret")
-	semversion, err := semver.Parse(releaseImage.Version())
-	if err != nil {
-		return ctrl.Result{}, nil
+	mcs.Status.Version = releaseImage.Version()
+	reconcileResult, err = r.reconcileUserData(ctx, mcs)
+	if reconcileResult != nil {
+		return *reconcileResult, err
+	} else if err != nil {
+		return ctrl.Result{}, err
 	}
-	userDataSecret = MachineConfigServerUserDataSecret(mcs)
+
+	if err := r.Status().Update(ctx, mcs); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *MachineConfigServerReconciler) reconcileUserData(ctx context.Context, mcs *hyperv1.MachineConfigServer) (*ctrl.Result, error) {
+	semversion, err := semver.Parse(mcs.Status.Version)
+	if err != nil {
+		return &ctrl.Result{}, err
+	}
+	userDataSecret := MachineConfigServerUserDataSecret(mcs)
+	r.Log.Info("Gathering data to generate machine userdata secret")
+	var nodeBootstrapperSecret corev1.Secret
+	if err := r.Client.Get(ctx, ctrlclient.ObjectKey{Namespace: mcs.Namespace, Name: haproxyConfigSecretName}, &nodeBootstrapperSecret); err != nil {
+		return &ctrl.Result{}, fmt.Errorf("failed to get machine config server haproxy secret conf %s: %w", haproxyConfigSecretName, err)
+	}
+	var nodeBootstrapperTokenData []byte
+	var ok bool
+	if nodeBootstrapperTokenData, ok = nodeBootstrapperSecret.Data["node-bootstrapper-token"]; !ok {
+		return &ctrl.Result{}, fmt.Errorf("could not find node bootstrapper token in machine config server haproxy secret conf  %s", haproxyConfigSecretName)
+	}
+	var hostedClusterConfigOperatorConfigMapData corev1.ConfigMap
+	if err := r.Client.Get(ctx, ctrlclient.ObjectKey{Namespace: mcs.Namespace, Name: hostedClusterConfigOperatorConfigMapName}, &hostedClusterConfigOperatorConfigMapData); err != nil {
+		return &ctrl.Result{}, fmt.Errorf("failed to get hosted cluster config operator configmap %s: %w", hostedClusterConfigOperatorConfigMapName, err)
+	}
+	var combinedCA string
+	if combinedCA, ok = hostedClusterConfigOperatorConfigMapData.Data["initial-ca.crt"]; !ok {
+		return &ctrl.Result{}, fmt.Errorf("could not find node initial-ca.crt in configmap %s", hostedClusterConfigOperatorConfigMapName)
+	}
+	r.Log.Info("Downstream data for userdata fetched. Generating and applying userdata secret.")
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, userDataSecret, func() error {
-		// For now, only create and never update this secret
-		if !userDataSecret.CreationTimestamp.IsZero() {
-			return nil
-		}
 		disableTemplatingValue := []byte(base64.StdEncoding.EncodeToString([]byte("true")))
 		var userDataValue []byte
 
@@ -204,27 +238,17 @@ func (r *MachineConfigServerReconciler) Reconcile(ctx context.Context, req ctrl.
 		semversion.Pre = nil
 		semversion.Build = nil
 		if semversion.GTE(semver.MustParse("4.6.0")) {
-			userDataValue = []byte(fmt.Sprintf(`{"ignition":{"config":{"merge":[{"source":"http://%s:%d/config/master","verification":{}}]},"security":{},"timeouts":{},"version":"3.1.0"},"networkd":{},"passwd":{},"storage":{},"systemd":{}}`, mcs.Status.Host, mcs.Status.Port))
+			userDataValue = []byte(fmt.Sprintf(`{"ignition":{"config":{"merge":[{"source":"https://%s:%d/config/master?token=%s","verification":{}}]},"security": { "tls": { "certificateAuthorities": [ { "source": "data:text/plain;charset=utf-8;base64,%s", "verification":{} } ] } },"timeouts":{},"version":"3.1.0"},"networkd":{},"passwd":{},"storage":{},"systemd":{}}`, mcs.Status.Host, mcs.Status.Port, url.QueryEscape(base64.StdEncoding.EncodeToString(nodeBootstrapperTokenData)), base64.StdEncoding.EncodeToString([]byte(combinedCA))))
 		} else {
-			userDataValue = []byte(fmt.Sprintf(`{"ignition":{"config":{"append":[{"source":"http://%s:%d/config/master","verification":{}}]},"security":{},"timeouts":{},"version":"2.2.0"},"networkd":{},"passwd":{},"storage":{},"systemd":{}}`, mcs.Status.Host, mcs.Status.Port))
+			userDataValue = []byte(fmt.Sprintf(`{"ignition":{"config":{"append":[{"source":"https://%s:%d/config/master?token=%s","verification":{}}]},"security":{ "tls": { "certificateAuthorities": [ { "source": "data:text/plain;charset=utf-8;base64,%s", "verification":{} } ] } },"timeouts":{},"version":"2.2.0"},"networkd":{},"passwd":{},"storage":{},"systemd":{}}`, mcs.Status.Host, mcs.Status.Port, url.QueryEscape(base64.StdEncoding.EncodeToString(nodeBootstrapperTokenData)), base64.StdEncoding.EncodeToString([]byte(combinedCA))))
 		}
-
 		userDataSecret.Data = map[string][]byte{
 			"disableTemplating": disableTemplatingValue,
 			"value":             userDataValue,
 		}
 		return nil
 	})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	mcs.Status.Version = releaseImage.Version()
-	if err := r.Status().Update(ctx, mcs); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{}, nil
+	return nil, err
 }
 
 func (r *MachineConfigServerReconciler) reconcileMCSServiceNodePort(ctx context.Context, mcs *hyperv1.MachineConfigServer, mcsService *corev1.Service) (*ctrl.Result, error) {
@@ -245,10 +269,10 @@ func (r *MachineConfigServerReconciler) reconcileMCSServiceNodePort(ctx context.
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, mcsService, func() error {
 		mcsService.Spec.Ports = []corev1.ServicePort{
 			{
-				Name:       "http",
+				Name:       "https",
 				Protocol:   corev1.ProtocolTCP,
-				Port:       80,
-				TargetPort: intstr.FromInt(8080),
+				Port:       443,
+				TargetPort: intstr.FromInt(8081),
 			},
 		}
 		if serviceNodePort > 0 {
@@ -280,10 +304,10 @@ func (r *MachineConfigServerReconciler) reconcileMCSServiceRoute(ctx context.Con
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, mcsService, func() error {
 		mcsService.Spec.Ports = []corev1.ServicePort{
 			{
-				Name:       "http",
+				Name:       "https",
 				Protocol:   corev1.ProtocolTCP,
-				Port:       80,
-				TargetPort: intstr.FromInt(8080),
+				Port:       443,
+				TargetPort: intstr.FromInt(8081),
 			},
 		}
 		mcsService.Spec.Selector = map[string]string{
@@ -301,6 +325,10 @@ func (r *MachineConfigServerReconciler) reconcileMCSServiceRoute(ctx context.Con
 			Kind: "Service",
 			Name: fmt.Sprintf("machine-config-server-%s", mcs.Name),
 		}
+		ignitionRoute.Spec.TLS = &routev1.TLSConfig{
+			Termination:                   routev1.TLSTerminationPassthrough,
+			InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyRedirect,
+		}
 		return nil
 	})
 	if err != nil {
@@ -314,7 +342,7 @@ func (r *MachineConfigServerReconciler) reconcileMCSServiceRoute(ctx context.Con
 		return &ctrl.Result{Requeue: true}, nil
 	}
 	mcs.Status.Host = ignitionRoute.Spec.Host
-	mcs.Status.Port = int32(80)
+	mcs.Status.Port = int32(443)
 	return nil, nil
 }
 
@@ -394,6 +422,7 @@ oc get cm -l ignition-config="true" -n "${NAMESPACE}" --no-headers | awk '{ prin
 				Labels: map[string]string{
 					"app": fmt.Sprintf("machine-config-server-%s", mcs.Name),
 				},
+				Annotations: mcs.Annotations,
 			},
 			Spec: corev1.PodSpec{
 				ServiceAccountName:            sa.Name,
@@ -528,6 +557,31 @@ oc get cm -l ignition-config="true" -n "${NAMESPACE}" --no-headers | awk '{ prin
 							},
 						},
 					},
+					{
+						Image:           images["haproxy-router"],
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						Name:            "haproxy",
+						Command: []string{
+							"haproxy",
+						},
+						Args: []string{
+							"-f",
+							"/usr/local/etc/haproxy/haproxy.cfg",
+						},
+						Ports: []corev1.ContainerPort{
+							{
+								Name:          "https",
+								ContainerPort: 8081,
+								Protocol:      corev1.ProtocolTCP,
+							},
+						},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      "haproxy-config",
+								MountPath: "/usr/local/etc/haproxy",
+							},
+						},
+					},
 				},
 				Volumes: []corev1.Volume{
 					{
@@ -565,6 +619,14 @@ oc get cm -l ignition-config="true" -n "${NAMESPACE}" --no-headers | awk '{ prin
 								LocalObjectReference: corev1.LocalObjectReference{
 									Name: "machine-config-server",
 								},
+							},
+						},
+					},
+					{
+						Name: "haproxy-config",
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: "machine-config-server-haproxy-config",
 							},
 						},
 					},

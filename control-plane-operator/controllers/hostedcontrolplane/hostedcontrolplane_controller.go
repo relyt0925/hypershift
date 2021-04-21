@@ -845,6 +845,10 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 			RootCAKey:                  rootCA.Data[pki.CASignerKeyMapKey],
 		}
 		r.Log.Info("Checking if node port domain should be added to machine config server certs")
+		// TODO: note this assumes that all NodePort services share a common address which is virtually always the case in
+		// actual environments. Ideally this would be fetched from the MachineConfigServer CRD itself but there is a race
+		// condition between the creation of the MachineConfigServer CRD and the initial PKI creation that would result in the
+		// Machine Config Server not functioning in the node port deployment model.
 		if hcp.Spec.Services != nil {
 			for _, serviceItr := range hcp.Spec.Services {
 				if serviceItr.ServicePublishingStrategy.Type == hyperv1.NodePort && serviceItr.ServicePublishingStrategy.NodePort != nil {

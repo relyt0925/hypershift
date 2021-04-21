@@ -46,9 +46,8 @@ type NodeBootstrapperTokenObserver struct {
 	Log logr.Logger
 }
 
-// Reconcile periodically watches for changes in the CA configmaps and updates
-// the kube-controller-manager-ca configmap in the management cluster with their
-// content.
+// Reconcile periodically watches for changes to the node-bootstrapper-token and updates
+// the cluster machine config servers to use the value for authentication purposes.
 func (r *NodeBootstrapperTokenObserver) Reconcile(_ context.Context, req ctrl.Request) (ctrl.Result, error) {
 	controllerLog := r.Log.WithValues("node-bootstrapper-token-observer", req.NamespacedName)
 	ctx := context.Background()

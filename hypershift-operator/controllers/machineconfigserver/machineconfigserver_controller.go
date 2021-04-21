@@ -211,7 +211,7 @@ func (r *MachineConfigServerReconciler) reconcileUserData(ctx context.Context, m
 		return &ctrl.Result{}, err
 	}
 	userDataSecret := MachineConfigServerUserDataSecret(mcs)
-	r.Log.Info("gathering data to generate machine userdata secret")
+	r.Log.Info("Gathering data to generate machine userdata secret")
 	var nodeBootstrapperSecret corev1.Secret
 	if err := r.Client.Get(ctx, ctrlclient.ObjectKey{Namespace: mcs.Namespace, Name: haproxyConfigSecretName}, &nodeBootstrapperSecret); err != nil {
 		return &ctrl.Result{}, fmt.Errorf("failed to get machine config server haproxy secret conf %s: %w", haproxyConfigSecretName, err)
@@ -229,7 +229,7 @@ func (r *MachineConfigServerReconciler) reconcileUserData(ctx context.Context, m
 	if combinedCA, ok = hostedClusterConfigOperatorConfigMapData.Data["initial-ca.crt"]; !ok {
 		return &ctrl.Result{}, fmt.Errorf("could not find node initial-ca.crt in configmap %s", hostedClusterConfigOperatorConfigMapName)
 	}
-	r.Log.Info("downstream data for userdata fetched. Generating and applying userdata secret.")
+	r.Log.Info("Downstream data for userdata fetched. Generating and applying userdata secret.")
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, userDataSecret, func() error {
 		disableTemplatingValue := []byte(base64.StdEncoding.EncodeToString([]byte("true")))
 		var userDataValue []byte

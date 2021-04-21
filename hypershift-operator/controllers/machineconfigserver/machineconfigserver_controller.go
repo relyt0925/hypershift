@@ -55,8 +55,7 @@ func (r *MachineConfigServerReconciler) SetupWithManager(mgr ctrl.Manager) error
 		WithOptions(controller.Options{
 			RateLimiter: workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 10*time.Second),
 		}).
-		WithEventFilter(predicate.AnnotationChangedPredicate{}).
-		WithEventFilter(predicate.GenerationChangedPredicate{}).
+		WithEventFilter(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{})).
 		Build(r)
 	if err != nil {
 		return fmt.Errorf("failed setting up with a controller manager %w", err)

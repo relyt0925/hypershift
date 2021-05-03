@@ -313,6 +313,7 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}
 
+	/*
 	// Reconcile etcd cluster status
 	{
 		etcdCluster := etcd.Cluster(hostedControlPlane.Namespace)
@@ -331,6 +332,7 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 			return ctrl.Result{}, err
 		}
 	}
+	 */
 
 	// Reconcile root CA
 	rootCASecret := pki.RootCASecret(hostedControlPlane.Namespace)
@@ -341,6 +343,7 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, fmt.Errorf("failed to reconcile root CA: %w", err)
 	}
 
+	/*
 	// Reconcile etcd
 	r.Log.Info("Reconciling Etcd")
 	if err = r.reconcileEtcd(ctx, hostedControlPlane, releaseImage); err != nil {
@@ -354,6 +357,7 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 			return ctrl.Result{RequeueAfter: etcdAvailableCheckInterval}, nil
 		}
 	}
+	 */
 
 	// Install the control plane into the infrastructure
 	r.Log.Info("Creating hosted control plane")

@@ -54,21 +54,22 @@ import (
 )
 
 const (
-	finalizer                  = "hypershift.openshift.io/finalizer"
-	controlPlaneAnnotation     = "hypershift.openshift.io/hosted-control-plane"
-	DefaultAdminKubeconfigName = "admin-kubeconfig"
-	DefaultAdminKubeconfigKey  = "kubeconfig"
-	pullSecretName             = "pull-secret"
-	vpnServiceAccountName      = "vpn"
-	ingressOperatorNamespace   = "openshift-ingress-operator"
-	hypershiftRouteLabel       = "hypershift.openshift.io/cluster"
-	oauthBrandingManifest      = "v4-0-config-system-branding.yaml"
-	DefaultAPIServerIPAddress  = "172.20.0.1"
-	etcdOperatorImage          = "quay.io/coreos/etcd-operator:v0.9.4"
-	etcdVersion                = "3.4.9"
-	etcdClusterSize            = 1
-	etcdDeleteCheckInterval    = 10 * time.Second
-	etcdAvailableCheckInterval = 10 * time.Second
+	finalizer                    = "hypershift.openshift.io/finalizer"
+	controlPlaneAnnotation       = "hypershift.openshift.io/hosted-control-plane"
+	DefaultAdminKubeconfigName   = "admin-kubeconfig"
+	DefaultAdminKubeconfigKey    = "kubeconfig"
+	pullSecretName               = "pull-secret"
+	vpnServiceAccountName        = "vpn"
+	ingressOperatorNamespace     = "openshift-ingress-operator"
+	hypershiftRouteLabel         = "hypershift.openshift.io/cluster"
+	oauthBrandingManifest        = "v4-0-config-system-branding.yaml"
+	DefaultAPIServerIPAddress    = "172.20.0.1"
+	etcdOperatorImage            = "quay.io/coreos/etcd-operator:v0.9.4"
+	etcdVersion                  = "3.4.9"
+	etcdClusterSize              = 1
+	etcdDeleteCheckInterval      = 10 * time.Second
+	etcdAvailableCheckInterval   = 10 * time.Second
+	etcdClientOverrideAnnotation = "hypershift.openshift.io/etcd-client-override"
 )
 
 var (
@@ -314,25 +315,25 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	/*
-	// Reconcile etcd cluster status
-	{
-		etcdCluster := etcd.Cluster(hostedControlPlane.Namespace)
-		var err error
-		if err = r.Get(ctx, types.NamespacedName{Namespace: etcdCluster.Namespace, Name: etcdCluster.Name}, etcdCluster); err != nil && !apierrors.IsNotFound(err) {
-			return ctrl.Result{}, fmt.Errorf("failed to fetch etcd cluster %s/%s: %w", etcdCluster.Namespace, etcdCluster.Name, err)
+		// Reconcile etcd cluster status
+		{
+			etcdCluster := etcd.Cluster(hostedControlPlane.Namespace)
+			var err error
+			if err = r.Get(ctx, types.NamespacedName{Namespace: etcdCluster.Namespace, Name: etcdCluster.Name}, etcdCluster); err != nil && !apierrors.IsNotFound(err) {
+				return ctrl.Result{}, fmt.Errorf("failed to fetch etcd cluster %s/%s: %w", etcdCluster.Namespace, etcdCluster.Name, err)
+			}
+			if apierrors.IsNotFound(err) {
+				etcdCluster = nil
+			} else if !etcdCluster.DeletionTimestamp.IsZero() {
+				// Wait til etcd cluster is gone in case it's being deleted
+				return ctrl.Result{RequeueAfter: etcdDeleteCheckInterval}, nil
+			}
+			err = etcd.ReconcileEtcdClusterStatus(ctx, r.Client, hostedControlPlane, etcdCluster)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
 		}
-		if apierrors.IsNotFound(err) {
-			etcdCluster = nil
-		} else if !etcdCluster.DeletionTimestamp.IsZero() {
-			// Wait til etcd cluster is gone in case it's being deleted
-			return ctrl.Result{RequeueAfter: etcdDeleteCheckInterval}, nil
-		}
-		err = etcd.ReconcileEtcdClusterStatus(ctx, r.Client, hostedControlPlane, etcdCluster)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-	 */
+	*/
 
 	// Reconcile root CA
 	rootCASecret := pki.RootCASecret(hostedControlPlane.Namespace)
@@ -344,20 +345,20 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	/*
-	// Reconcile etcd
-	r.Log.Info("Reconciling Etcd")
-	if err = r.reconcileEtcd(ctx, hostedControlPlane, releaseImage); err != nil {
-		r.Log.Error(err, "failed to reconcile etcd")
-		return ctrl.Result{}, err
-	}
-	{
-		etcdAvailable := getConditionByType(hostedControlPlane.Status.Conditions, hyperv1.EtcdAvailable)
-		if etcdAvailable == nil || etcdAvailable.Status != hyperv1.ConditionTrue {
-			r.Log.Info("etcd is not yet available")
-			return ctrl.Result{RequeueAfter: etcdAvailableCheckInterval}, nil
+		// Reconcile etcd
+		r.Log.Info("Reconciling Etcd")
+		if err = r.reconcileEtcd(ctx, hostedControlPlane, releaseImage); err != nil {
+			r.Log.Error(err, "failed to reconcile etcd")
+			return ctrl.Result{}, err
 		}
-	}
-	 */
+		{
+			etcdAvailable := getConditionByType(hostedControlPlane.Status.Conditions, hyperv1.EtcdAvailable)
+			if etcdAvailable == nil || etcdAvailable.Status != hyperv1.ConditionTrue {
+				r.Log.Info("etcd is not yet available")
+				return ctrl.Result{RequeueAfter: etcdAvailableCheckInterval}, nil
+			}
+		}
+	*/
 
 	// Install the control plane into the infrastructure
 	r.Log.Info("Creating hosted control plane")
@@ -778,6 +779,11 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 	params.InternalAPIPort = defaultAPIServerPort
 	params.IssuerURL = hcp.Spec.IssuerURL
 	params.EtcdClientName = "etcd-client"
+	if hcp.Annotations != nil {
+		if _, ok := hcp.Annotations[etcdClientOverrideAnnotation]; ok {
+			params.EtcdClientName = hcp.Annotations[etcdClientOverrideAnnotation]
+		}
+	}
 	params.NetworkType = "OpenShiftSDN"
 	params.ImageRegistryHTTPSecret = generateImageRegistrySecret()
 	params.APIAvailabilityPolicy = render.SingleReplica

@@ -55,6 +55,7 @@ import (
 const (
 	finalizer                      = "hypershift.openshift.io/finalizer"
 	hostedClusterAnnotation        = "hypershift.openshift.io/cluster"
+	etcdClientOverrideAnnotation   = "hypershift.openshift.io/etcd-client-override"
 	clusterDeletionRequeueDuration = time.Duration(5 * time.Second)
 )
 
@@ -435,6 +436,11 @@ func reconcileHostedControlPlane(hcp *hyperv1.HostedControlPlane, hcluster *hype
 		hostedClusterAnnotation: ctrlclient.ObjectKeyFromObject(hcluster).String(),
 	}
 
+	if hcluster.Annotations != nil {
+		if _, ok := hcluster.Annotations[etcdClientOverrideAnnotation]; ok {
+			hcp.Annotations[etcdClientOverrideAnnotation] = hcluster.Annotations[etcdClientOverrideAnnotation]
+		}
+	}
 	hcp.Spec.PullSecret = corev1.LocalObjectReference{Name: controlplaneoperator.PullSecret(hcp.Namespace).Name}
 	hcp.Spec.SigningKey = corev1.LocalObjectReference{Name: controlplaneoperator.SigningKey(hcp.Namespace).Name}
 	if len(hcluster.Spec.SSHKey.Name) > 0 {

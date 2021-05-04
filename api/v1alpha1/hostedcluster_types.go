@@ -126,6 +126,8 @@ const (
 	AWSPlatform PlatformType = "AWS"
 
 	NonePlatform PlatformType = "None"
+
+	IBMCloudPlatform PlatformType = "IBMCloud"
 )
 
 type PlatformSpec struct {

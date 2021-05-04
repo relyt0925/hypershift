@@ -963,10 +963,19 @@ func (r *HostedControlPlaneReconciler) reconcileKubeAPIServerServiceNodePortReso
 		r.Log.Info("Preserving existing nodePort for service", "nodePort", kubeAPIServerServiceData.Spec.Ports[0].NodePort)
 		nodePort = kubeAPIServerServiceData.Spec.Ports[0].NodePort
 	}
+	var securePort int32 = defaultAPIServerPort
+	if hcp.Annotations != nil {
+		if _, ok := hcp.Annotations[securePortOverrideAnnotation]; ok {
+			portNumber, err := strconv.ParseInt(hcp.Annotations[securePortOverrideAnnotation], 10, 32)
+			if err == nil {
+				securePort = int32(portNumber)
+			}
+		}
+	}
 	r.Log.Info("Updating KubeAPI service")
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
 		svc.OwnerReferences = ensureHCPOwnerRef(hcp, svc.OwnerReferences)
-		return reconcileKubeAPIServerServiceNodePort(svc, nodePort)
+		return reconcileKubeAPIServerServiceNodePort(svc, nodePort, securePort)
 	})
 	return err
 }
@@ -986,8 +995,8 @@ func (r *HostedControlPlaneReconciler) updateStatusKubeAPIServerServiceNodePort(
 	return nil
 }
 
-func reconcileKubeAPIServerServiceNodePort(svc *corev1.Service, nodePort int32) error {
-	svc.Spec.Ports = KubeAPIServerServicePorts(defaultAPIServerPort)
+func reconcileKubeAPIServerServiceNodePort(svc *corev1.Service, nodePort int32, securePort int32) error {
+	svc.Spec.Ports = KubeAPIServerServicePorts(securePort)
 	if nodePort > 0 {
 		svc.Spec.Ports[0].NodePort = nodePort
 	}

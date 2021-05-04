@@ -115,22 +115,6 @@ spec:
           name: logs
         - name: apiserver-cm
           mountPath: /etc/kubernetes/audit/
-      - name: openvpn-client
-        image: quay.io/hypershift/openvpn:latest
-        imagePullPolicy: Always
-        command:
-        - /usr/sbin/openvpn
-        args:
-        - --config
-        - /etc/openvpn/config/client.conf
-        workingDir: /etc/openvpn/
-        securityContext:
-          privileged: true
-        volumeMounts:
-        - mountPath: /etc/openvpn/secret
-          name: vpnsecret
-        - mountPath: /etc/openvpn/config
-          name: vpnconfig
       volumes:
       - name: bootstrap-manifests
         emptyDir: {}
@@ -151,12 +135,6 @@ spec:
       - configMap:
           name: kube-apiserver-oauth-metadata
         name: oauth
-      - name: vpnconfig
-        configMap:
-          name: kube-apiserver-vpnclient-config
-      - name: vpnsecret
-        secret:
-          secretName: kube-apiserver-vpnclient-secret
       - name: apiserver-cm
         configMap:
           name: apiserver-default-audit-cm

@@ -66,7 +66,7 @@ func (c *clusterManifestContext) setupManifests() {
 	c.openshiftControllerManager()
 	c.clusterBootstrap()
 	c.oauthOpenshiftServer()
-	c.openVPN()
+	//c.openVPN()
 	c.registry()
 	c.userManifestsBootstrapper()
 	c.machineConfigServer()

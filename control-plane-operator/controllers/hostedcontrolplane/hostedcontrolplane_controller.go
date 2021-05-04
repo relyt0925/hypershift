@@ -314,26 +314,24 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}
 
-	/*
-		// Reconcile etcd cluster status
-		{
-			etcdCluster := etcd.Cluster(hostedControlPlane.Namespace)
-			var err error
-			if err = r.Get(ctx, types.NamespacedName{Namespace: etcdCluster.Namespace, Name: etcdCluster.Name}, etcdCluster); err != nil && !apierrors.IsNotFound(err) {
-				return ctrl.Result{}, fmt.Errorf("failed to fetch etcd cluster %s/%s: %w", etcdCluster.Namespace, etcdCluster.Name, err)
-			}
-			if apierrors.IsNotFound(err) {
-				etcdCluster = nil
-			} else if !etcdCluster.DeletionTimestamp.IsZero() {
-				// Wait til etcd cluster is gone in case it's being deleted
-				return ctrl.Result{RequeueAfter: etcdDeleteCheckInterval}, nil
-			}
-			err = etcd.ReconcileEtcdClusterStatus(ctx, r.Client, hostedControlPlane, etcdCluster)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
+	// Reconcile etcd cluster status
+	if _, ok := hostedControlPlane.Annotations[etcdClientOverrideAnnotation]; !ok {
+		etcdCluster := etcd.Cluster(hostedControlPlane.Namespace)
+		var err error
+		if err = r.Get(ctx, types.NamespacedName{Namespace: etcdCluster.Namespace, Name: etcdCluster.Name}, etcdCluster); err != nil && !apierrors.IsNotFound(err) {
+			return ctrl.Result{}, fmt.Errorf("failed to fetch etcd cluster %s/%s: %w", etcdCluster.Namespace, etcdCluster.Name, err)
 		}
-	*/
+		if apierrors.IsNotFound(err) {
+			etcdCluster = nil
+		} else if !etcdCluster.DeletionTimestamp.IsZero() {
+			// Wait til etcd cluster is gone in case it's being deleted
+			return ctrl.Result{RequeueAfter: etcdDeleteCheckInterval}, nil
+		}
+		err = etcd.ReconcileEtcdClusterStatus(ctx, r.Client, hostedControlPlane, etcdCluster)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 
 	// Reconcile root CA
 	rootCASecret := pki.RootCASecret(hostedControlPlane.Namespace)
@@ -344,7 +342,7 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, fmt.Errorf("failed to reconcile root CA: %w", err)
 	}
 
-	/*
+	if _, ok := hostedControlPlane.Annotations[etcdClientOverrideAnnotation]; !ok {
 		// Reconcile etcd
 		r.Log.Info("Reconciling Etcd")
 		if err = r.reconcileEtcd(ctx, hostedControlPlane, releaseImage); err != nil {
@@ -358,7 +356,7 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 				return ctrl.Result{RequeueAfter: etcdAvailableCheckInterval}, nil
 			}
 		}
-	*/
+	}
 
 	// Install the control plane into the infrastructure
 	r.Log.Info("Creating hosted control plane")

@@ -6,6 +6,7 @@ import (
 	crand "crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -74,6 +75,7 @@ const (
 	networkTypeOverrideAnnotation = "hypershift.openshift.io/networktype-override"
 	securePortOverrideAnnotation  = "hypershift.openshift.io/secureport-override"
 	identityProviderAnnotation    = "hypershift.openshift.io/identity-provider"
+	namedCertAnnotation           = "hypershift.openshift.io/named-cert"
 )
 
 var (
@@ -779,22 +781,8 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 	}
 
 	params.InternalAPIPort = defaultAPIServerPort
-	if hcp.Annotations != nil {
-		if _, ok := hcp.Annotations[securePortOverrideAnnotation]; ok {
-			portNumber, err := strconv.ParseUint(hcp.Annotations[securePortOverrideAnnotation], 10, 32)
-			if err != nil {
-				return nil, err
-			}
-			params.InternalAPIPort = uint(portNumber)
-		}
-	}
 	params.IssuerURL = hcp.Spec.IssuerURL
 	params.EtcdClientName = "etcd-client"
-	if hcp.Annotations != nil {
-		if _, ok := hcp.Annotations[etcdClientOverrideAnnotation]; ok {
-			params.EtcdClientName = hcp.Annotations[etcdClientOverrideAnnotation]
-		}
-	}
 	params.NetworkType = "OpenShiftSDN"
 	if hcp.Annotations != nil {
 		if _, ok := hcp.Annotations[networkTypeOverrideAnnotation]; ok {
@@ -803,7 +791,22 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 		if _, ok := hcp.Annotations[identityProviderAnnotation]; ok {
 			params.IdentityProviders = hcp.Annotations[identityProviderAnnotation]
 		}
-
+		if _, ok := hcp.Annotations[namedCertAnnotation]; ok {
+			var namedCertStruct []render.NamedCert
+			err := json.Unmarshal([]byte(hcp.Annotations[namedCertAnnotation]), &namedCertStruct)
+			if err == nil {
+				params.NamedCerts = namedCertStruct
+			}
+		}
+		if _, ok := hcp.Annotations[etcdClientOverrideAnnotation]; ok {
+			params.EtcdClientName = hcp.Annotations[etcdClientOverrideAnnotation]
+		}
+		if _, ok := hcp.Annotations[securePortOverrideAnnotation]; ok {
+			portNumber, err := strconv.ParseUint(hcp.Annotations[securePortOverrideAnnotation], 10, 32)
+			if err == nil {
+				params.InternalAPIPort = uint(portNumber)
+			}
+		}
 	}
 	params.ImageRegistryHTTPSecret = generateImageRegistrySecret()
 	params.APIAvailabilityPolicy = render.SingleReplica

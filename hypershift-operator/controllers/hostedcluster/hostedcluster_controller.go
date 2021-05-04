@@ -58,6 +58,7 @@ const (
 	etcdClientOverrideAnnotation  = "hypershift.openshift.io/etcd-client-override"
 	networkTypeOverrideAnnotation = "hypershift.openshift.io/networktype-override"
 	securePortOverrideAnnotation  = "hypershift.openshift.io/secureport-override"
+	identityProviderAnnotation    = "hypershift.openshift.io/identity-provider"
 
 	clusterDeletionRequeueDuration = time.Duration(5 * time.Second)
 )
@@ -434,6 +435,9 @@ func reconcileHostedControlPlane(hcp *hyperv1.HostedControlPlane, hcluster *hype
 		}
 		if _, ok := hcluster.Annotations[securePortOverrideAnnotation]; ok {
 			hcp.Annotations[securePortOverrideAnnotation] = hcluster.Annotations[securePortOverrideAnnotation]
+		}
+		if _, ok := hcluster.Annotations[identityProviderAnnotation]; ok {
+			hcp.Annotations[identityProviderAnnotation] = hcluster.Annotations[identityProviderAnnotation]
 		}
 	}
 	hcp.Spec.PullSecret = corev1.LocalObjectReference{Name: controlplaneoperator.PullSecret(hcp.Namespace).Name}

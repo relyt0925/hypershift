@@ -73,6 +73,7 @@ const (
 	etcdClientOverrideAnnotation  = "hypershift.openshift.io/etcd-client-override"
 	networkTypeOverrideAnnotation = "hypershift.openshift.io/networktype-override"
 	securePortOverrideAnnotation  = "hypershift.openshift.io/secureport-override"
+	identityProviderAnnotation    = "hypershift.openshift.io/identity-provider"
 )
 
 var (
@@ -799,6 +800,10 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 		if _, ok := hcp.Annotations[networkTypeOverrideAnnotation]; ok {
 			params.NetworkType = hcp.Annotations[networkTypeOverrideAnnotation]
 		}
+		if _, ok := hcp.Annotations[identityProviderAnnotation]; ok {
+			params.IdentityProviders = hcp.Annotations[identityProviderAnnotation]
+		}
+
 	}
 	params.ImageRegistryHTTPSecret = generateImageRegistrySecret()
 	params.APIAvailabilityPolicy = render.SingleReplica

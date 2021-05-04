@@ -125,11 +125,7 @@ func (c *clusterManifestContext) oauthOpenshiftServer() {
 		"oauth-openshift/oauth-server-service.yaml",
 		"oauth-openshift/v4-0-config-system-branding.yaml",
 		"oauth-openshift/oauth-server-sessionsecret-secret.yaml",
-		"oauth-openshift/oauth-server-secret.yaml",
 		"oauth-openshift/oauth-server-configmap.yaml",
-	)
-	c.addUserManifestFiles(
-		"oauth-openshift/ingress-certs-secret.yaml",
 	)
 }
 

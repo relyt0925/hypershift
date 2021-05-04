@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"math/rand"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -54,22 +55,24 @@ import (
 )
 
 const (
-	finalizer                    = "hypershift.openshift.io/finalizer"
-	controlPlaneAnnotation       = "hypershift.openshift.io/hosted-control-plane"
-	DefaultAdminKubeconfigName   = "admin-kubeconfig"
-	DefaultAdminKubeconfigKey    = "kubeconfig"
-	pullSecretName               = "pull-secret"
-	vpnServiceAccountName        = "vpn"
-	ingressOperatorNamespace     = "openshift-ingress-operator"
-	hypershiftRouteLabel         = "hypershift.openshift.io/cluster"
-	oauthBrandingManifest        = "v4-0-config-system-branding.yaml"
-	DefaultAPIServerIPAddress    = "172.20.0.1"
-	etcdOperatorImage            = "quay.io/coreos/etcd-operator:v0.9.4"
-	etcdVersion                  = "3.4.9"
-	etcdClusterSize              = 1
-	etcdDeleteCheckInterval      = 10 * time.Second
-	etcdAvailableCheckInterval   = 10 * time.Second
-	etcdClientOverrideAnnotation = "hypershift.openshift.io/etcd-client-override"
+	finalizer                     = "hypershift.openshift.io/finalizer"
+	controlPlaneAnnotation        = "hypershift.openshift.io/hosted-control-plane"
+	DefaultAdminKubeconfigName    = "admin-kubeconfig"
+	DefaultAdminKubeconfigKey     = "kubeconfig"
+	pullSecretName                = "pull-secret"
+	vpnServiceAccountName         = "vpn"
+	ingressOperatorNamespace      = "openshift-ingress-operator"
+	hypershiftRouteLabel          = "hypershift.openshift.io/cluster"
+	oauthBrandingManifest         = "v4-0-config-system-branding.yaml"
+	DefaultAPIServerIPAddress     = "172.20.0.1"
+	etcdOperatorImage             = "quay.io/coreos/etcd-operator:v0.9.4"
+	etcdVersion                   = "3.4.9"
+	etcdClusterSize               = 1
+	etcdDeleteCheckInterval       = 10 * time.Second
+	etcdAvailableCheckInterval    = 10 * time.Second
+	etcdClientOverrideAnnotation  = "hypershift.openshift.io/etcd-client-override"
+	networkTypeOverrideAnnotation = "hypershift.openshift.io/networktype-override"
+	securePortOverrideAnnotation  = "hypershift.openshift.io/secureport-override"
 )
 
 var (
@@ -775,6 +778,15 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 	}
 
 	params.InternalAPIPort = defaultAPIServerPort
+	if hcp.Annotations != nil {
+		if _, ok := hcp.Annotations[securePortOverrideAnnotation]; ok {
+			portNumber, err := strconv.ParseUint(hcp.Annotations[securePortOverrideAnnotation], 10, 32)
+			if err != nil {
+				return nil, err
+			}
+			params.InternalAPIPort = uint(portNumber)
+		}
+	}
 	params.IssuerURL = hcp.Spec.IssuerURL
 	params.EtcdClientName = "etcd-client"
 	if hcp.Annotations != nil {
@@ -782,7 +794,12 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 			params.EtcdClientName = hcp.Annotations[etcdClientOverrideAnnotation]
 		}
 	}
-	params.NetworkType = "Calico"
+	params.NetworkType = "OpenShiftSDN"
+	if hcp.Annotations != nil {
+		if _, ok := hcp.Annotations[networkTypeOverrideAnnotation]; ok {
+			params.NetworkType = hcp.Annotations[networkTypeOverrideAnnotation]
+		}
+	}
 	params.ImageRegistryHTTPSecret = generateImageRegistrySecret()
 	params.APIAvailabilityPolicy = render.SingleReplica
 	params.ControllerAvailabilityPolicy = render.SingleReplica

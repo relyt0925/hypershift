@@ -66,7 +66,7 @@ func (c *clusterManifestContext) setupManifests() {
 	c.openshiftControllerManager()
 	c.clusterBootstrap()
 	c.oauthOpenshiftServer()
-	//c.openVPN()
+	c.openVPN()
 	c.registry()
 	c.userManifestsBootstrapper()
 	c.machineConfigServer()
@@ -258,15 +258,6 @@ func (c *clusterManifestContext) machineConfigServer() {
 func (c *clusterManifestContext) openVPN() {
 	c.addManifestFiles(
 		"openvpn/openvpn-serviceaccount.yaml",
-		"openvpn/openvpn-server-deployment.yaml",
-		"openvpn/openvpn-ccd-configmap.yaml",
-		"openvpn/openvpn-server-configmap.yaml",
-		"openvpn/openvpn-server-secret.yaml",
-		"openvpn/openvpn-client-secret.yaml",
-	)
-	c.addUserManifestFiles(
-		"openvpn/openvpn-client-deployment.yaml",
-		"openvpn/openvpn-client-configmap.yaml",
 	)
 }
 

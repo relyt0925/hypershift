@@ -256,7 +256,7 @@ spec:
                     enum:
                     - AWS
                     - None
-                    - IBMCloudPlatform
+                    - IBMCloud
                     type: string
                 required:
                 - type

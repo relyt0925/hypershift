@@ -202,6 +202,7 @@ spec:
                     enum:
                     - AWS
                     - None
+                    - IBMCloud
                     type: string
                 required:
                 - type

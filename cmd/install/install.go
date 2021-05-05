@@ -65,7 +65,7 @@ func NewCommand() *cobra.Command {
 
 		objects = append(objects, hyperShiftOperatorManifests(opts)...)
 		objects = append(objects, clusterAPIManifests()...)
-		objects = append(objects, etcdManifests()...)
+		//objects = append(objects, etcdManifests()...)
 
 		switch {
 		case opts.Render:

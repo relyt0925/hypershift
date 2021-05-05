@@ -125,11 +125,7 @@ func (c *clusterManifestContext) oauthOpenshiftServer() {
 		"oauth-openshift/oauth-server-service.yaml",
 		"oauth-openshift/v4-0-config-system-branding.yaml",
 		"oauth-openshift/oauth-server-sessionsecret-secret.yaml",
-		"oauth-openshift/oauth-server-secret.yaml",
 		"oauth-openshift/oauth-server-configmap.yaml",
-	)
-	c.addUserManifestFiles(
-		"oauth-openshift/ingress-certs-secret.yaml",
 	)
 }
 
@@ -263,15 +259,6 @@ func (c *clusterManifestContext) machineConfigServer() {
 func (c *clusterManifestContext) openVPN() {
 	c.addManifestFiles(
 		"openvpn/openvpn-serviceaccount.yaml",
-		"openvpn/openvpn-server-deployment.yaml",
-		"openvpn/openvpn-ccd-configmap.yaml",
-		"openvpn/openvpn-server-configmap.yaml",
-		"openvpn/openvpn-server-secret.yaml",
-		"openvpn/openvpn-client-secret.yaml",
-	)
-	c.addUserManifestFiles(
-		"openvpn/openvpn-client-deployment.yaml",
-		"openvpn/openvpn-client-configmap.yaml",
 	)
 }
 

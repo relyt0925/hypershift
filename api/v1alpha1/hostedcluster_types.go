@@ -116,7 +116,7 @@ type ClusterNetworking struct {
 }
 
 // PlatformType is a specific supported infrastructure provider.
-// +kubebuilder:validation:Enum=AWS;None
+// +kubebuilder:validation:Enum=AWS;None;IBMCloud
 type PlatformType string
 
 const (
@@ -124,6 +124,8 @@ const (
 	AWSPlatform PlatformType = "AWS"
 
 	NonePlatform PlatformType = "None"
+
+	IBMCloudPlatform PlatformType = "IBMCloud"
 )
 
 type PlatformSpec struct {

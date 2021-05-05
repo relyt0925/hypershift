@@ -62,7 +62,6 @@ func NewKubeAPIServerManifestContext(params *KubeAPIServerParams) *kubeAPIServer
 		"kube-apiserver/kube-apiserver-vpnclient-config.yaml",
 		"kube-apiserver/kube-apiserver-secret.yaml",
 		"kube-apiserver/kube-apiserver-configmap.yaml",
-		"kube-apiserver/kube-apiserver-vpnclient-secret.yaml",
 		"kube-apiserver/kube-apiserver-default-audit-policy.yaml",
 		"kube-apiserver/kube-apiserver-localhost-kubeconfig-secret.yaml",
 	)

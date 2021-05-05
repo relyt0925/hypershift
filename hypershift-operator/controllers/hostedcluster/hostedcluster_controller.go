@@ -53,8 +53,14 @@ import (
 )
 
 const (
-	finalizer                      = "hypershift.openshift.io/finalizer"
-	hostedClusterAnnotation        = "hypershift.openshift.io/cluster"
+	finalizer                     = "hypershift.openshift.io/finalizer"
+	hostedClusterAnnotation       = "hypershift.openshift.io/cluster"
+	etcdClientOverrideAnnotation  = "hypershift.openshift.io/etcd-client-override"
+	networkTypeOverrideAnnotation = "hypershift.openshift.io/networktype-override"
+	securePortOverrideAnnotation  = "hypershift.openshift.io/secureport-override"
+	identityProviderAnnotation    = "hypershift.openshift.io/identity-provider"
+	namedCertAnnotation           = "hypershift.openshift.io/named-cert"
+
 	clusterDeletionRequeueDuration = time.Duration(5 * time.Second)
 )
 
@@ -421,6 +427,23 @@ func reconcileHostedControlPlane(hcp *hyperv1.HostedControlPlane, hcluster *hype
 		hostedClusterAnnotation: ctrlclient.ObjectKeyFromObject(hcluster).String(),
 	}
 
+	if hcluster.Annotations != nil {
+		if _, ok := hcluster.Annotations[etcdClientOverrideAnnotation]; ok {
+			hcp.Annotations[etcdClientOverrideAnnotation] = hcluster.Annotations[etcdClientOverrideAnnotation]
+		}
+		if _, ok := hcluster.Annotations[networkTypeOverrideAnnotation]; ok {
+			hcp.Annotations[networkTypeOverrideAnnotation] = hcluster.Annotations[networkTypeOverrideAnnotation]
+		}
+		if _, ok := hcluster.Annotations[securePortOverrideAnnotation]; ok {
+			hcp.Annotations[securePortOverrideAnnotation] = hcluster.Annotations[securePortOverrideAnnotation]
+		}
+		if _, ok := hcluster.Annotations[identityProviderAnnotation]; ok {
+			hcp.Annotations[identityProviderAnnotation] = hcluster.Annotations[identityProviderAnnotation]
+		}
+		if _, ok := hcluster.Annotations[namedCertAnnotation]; ok {
+			hcp.Annotations[namedCertAnnotation] = hcluster.Annotations[namedCertAnnotation]
+		}
+	}
 	hcp.Spec.PullSecret = corev1.LocalObjectReference{Name: controlplaneoperator.PullSecret(hcp.Namespace).Name}
 	hcp.Spec.SigningKey = corev1.LocalObjectReference{Name: controlplaneoperator.SigningKey(hcp.Namespace).Name}
 	if len(hcluster.Spec.SSHKey.Name) > 0 {
@@ -449,6 +472,8 @@ func reconcileHostedControlPlane(hcp *hyperv1.HostedControlPlane, hcluster *hype
 		hcp.Spec.Platform.AWS.NodePoolManagementCreds = corev1.LocalObjectReference{
 			Name: manifests.AWSNodePoolManagementCreds(hcp.Namespace).Name,
 		}
+	case hyperv1.IBMCloudPlatform:
+		hcp.Spec.Platform.Type = hyperv1.IBMCloudPlatform
 	case hyperv1.NonePlatform:
 		hcp.Spec.Platform.Type = hyperv1.NonePlatform
 	}

@@ -479,10 +479,10 @@ func reconcileHostedControlPlane(hcp *hyperv1.HostedControlPlane, hcluster *hype
 		hcp.Spec.Platform.AWS.NodePoolManagementCreds = corev1.LocalObjectReference{
 			Name: manifests.AWSNodePoolManagementCreds(hcp.Namespace).Name,
 		}
-	case hyperv1.IBMCloudPlatform:
-		hcp.Spec.Platform.Type = hyperv1.IBMCloudPlatform
 	case hyperv1.NonePlatform:
 		hcp.Spec.Platform.Type = hyperv1.NonePlatform
+	case hyperv1.IBMCloudPlatform:
+		hcp.Spec.Platform.Type = hyperv1.IBMCloudPlatform
 	}
 
 	// Only update release image (triggering a new rollout) after existing rollouts

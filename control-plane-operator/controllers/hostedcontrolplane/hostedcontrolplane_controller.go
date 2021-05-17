@@ -6,11 +6,13 @@ import (
 	crand "crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"math/rand"
 	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -75,7 +77,12 @@ const (
 	etcdAvailableCheckInterval  = 10 * time.Second
 	kasAvailableCheckInterval   = 10 * time.Second
 
-	kubeAPIServerPort = 6443
+	kubeAPIServerPort             = 6443
+	etcdClientOverrideAnnotation  = "hypershift.openshift.io/etcd-client-override"
+	networkTypeOverrideAnnotation = "hypershift.openshift.io/networktype-override"
+	securePortOverrideAnnotation  = "hypershift.openshift.io/secureport-override"
+	identityProviderAnnotation    = "hypershift.openshift.io/identity-provider"
+	namedCertAnnotation           = "hypershift.openshift.io/named-cert"
 )
 
 var (
@@ -290,7 +297,7 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Reconcile etcd cluster status
-	{
+	if _, ok := hostedControlPlane.Annotations[etcdClientOverrideAnnotation]; !ok {
 		etcdCluster := manifests.EtcdCluster(hostedControlPlane.Namespace)
 		var err error
 		if err = r.Get(ctx, types.NamespacedName{Namespace: etcdCluster.Namespace, Name: etcdCluster.Name}, etcdCluster); err != nil && !apierrors.IsNotFound(err) {
@@ -368,20 +375,22 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Reconcile etcd
-	r.Log.Info("Reconciling Etcd")
-	if err = r.reconcileEtcd(ctx, hostedControlPlane, releaseImage); err != nil {
-		r.Log.Error(err, "failed to reconcile etcd")
-		return ctrl.Result{}, err
-	}
-	{
-		etcdAvailable := hcputil.GetConditionByType(hostedControlPlane.Status.Conditions, hyperv1.EtcdAvailable)
-		if etcdAvailable == nil || etcdAvailable.Status != hyperv1.ConditionTrue {
-			r.Log.Info("etcd is not yet available")
-			msg := "Etcd service not yet available"
-			if etcdAvailable != nil {
-				msg = etcdAvailable.Message
+	if _, ok := hostedControlPlane.Annotations[etcdClientOverrideAnnotation]; !ok {
+		r.Log.Info("Reconciling Etcd")
+		if err = r.reconcileEtcd(ctx, hostedControlPlane, releaseImage); err != nil {
+			r.Log.Error(err, "failed to reconcile etcd")
+			return ctrl.Result{}, err
+		}
+		{
+			etcdAvailable := hcputil.GetConditionByType(hostedControlPlane.Status.Conditions, hyperv1.EtcdAvailable)
+			if etcdAvailable == nil || etcdAvailable.Status != hyperv1.ConditionTrue {
+				r.Log.Info("etcd is not yet available")
+				msg := "Etcd service not yet available"
+				if etcdAvailable != nil {
+					msg = etcdAvailable.Message
+				}
+				return r.setAvailableCondition(ctx, hostedControlPlane, oldStatus, hyperv1.ConditionFalse, "EtcdNotAvailable", msg, ctrl.Result{RequeueAfter: etcdAvailableCheckInterval}, nil)
 			}
-			return r.setAvailableCondition(ctx, hostedControlPlane, oldStatus, hyperv1.ConditionFalse, "EtcdNotAvailable", msg, ctrl.Result{RequeueAfter: etcdAvailableCheckInterval}, nil)
 		}
 	}
 	// Reconcile VPN
@@ -1260,6 +1269,30 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 	params.IssuerURL = hcp.Spec.IssuerURL
 	params.EtcdClientName = "etcd-client"
 	params.NetworkType = "OpenShiftSDN"
+	if hcp.Annotations != nil {
+		if _, ok := hcp.Annotations[networkTypeOverrideAnnotation]; ok {
+			params.NetworkType = hcp.Annotations[networkTypeOverrideAnnotation]
+		}
+		if _, ok := hcp.Annotations[identityProviderAnnotation]; ok {
+			params.IdentityProviders = hcp.Annotations[identityProviderAnnotation]
+		}
+		if _, ok := hcp.Annotations[namedCertAnnotation]; ok {
+			var namedCertStruct []render.NamedCert
+			err := json.Unmarshal([]byte(hcp.Annotations[namedCertAnnotation]), &namedCertStruct)
+			if err == nil {
+				params.NamedCerts = namedCertStruct
+			}
+		}
+		if _, ok := hcp.Annotations[etcdClientOverrideAnnotation]; ok {
+			params.EtcdClientName = hcp.Annotations[etcdClientOverrideAnnotation]
+		}
+		if _, ok := hcp.Annotations[securePortOverrideAnnotation]; ok {
+			portNumber, err := strconv.ParseUint(hcp.Annotations[securePortOverrideAnnotation], 10, 32)
+			if err == nil {
+				params.InternalAPIPort = uint(portNumber)
+			}
+		}
+	}
 	params.ImageRegistryHTTPSecret = generateImageRegistrySecret()
 	params.APIAvailabilityPolicy = render.SingleReplica
 	params.ControllerAvailabilityPolicy = render.SingleReplica
@@ -1317,10 +1350,19 @@ func (r *HostedControlPlaneReconciler) reconcileKubeAPIServerServiceNodePortReso
 		r.Log.Info("Preserving existing nodePort for service", "nodePort", kubeAPIServerServiceData.Spec.Ports[0].NodePort)
 		nodePort = kubeAPIServerServiceData.Spec.Ports[0].NodePort
 	}
+	var securePort int32 = defaultAPIServerPort
+	if hcp.Annotations != nil {
+		if _, ok := hcp.Annotations[securePortOverrideAnnotation]; ok {
+			portNumber, err := strconv.ParseInt(hcp.Annotations[securePortOverrideAnnotation], 10, 32)
+			if err == nil {
+				securePort = int32(portNumber)
+			}
+		}
+	}
 	r.Log.Info("Updating KubeAPI service")
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
 		svc.OwnerReferences = ensureHCPOwnerRef(hcp, svc.OwnerReferences)
-		return reconcileKubeAPIServerServiceNodePort(svc, nodePort)
+		return reconcileKubeAPIServerServiceNodePort(svc, nodePort, securePort)
 	})
 	return err
 }
@@ -1340,8 +1382,8 @@ func (r *HostedControlPlaneReconciler) updateStatusKubeAPIServerServiceNodePort(
 	return nil
 }
 
-func reconcileKubeAPIServerServiceNodePort(svc *corev1.Service, nodePort int32) error {
-	svc.Spec.Ports = KubeAPIServerServicePorts(defaultAPIServerPort)
+func reconcileKubeAPIServerServiceNodePort(svc *corev1.Service, nodePort int32, securePort int32) error {
+	svc.Spec.Ports = KubeAPIServerServicePorts(securePort)
 	if nodePort > 0 {
 		svc.Spec.Ports[0].NodePort = nodePort
 	}
@@ -1709,6 +1751,8 @@ func platformType(hcp *hyperv1.HostedControlPlane) string {
 	switch {
 	case hcp.Spec.Platform.AWS != nil:
 		return "AWS"
+	case hcp.Spec.Platform.Type == hyperv1.IBMCloudPlatform:
+		return "IBMCloud"
 	default:
 		return "None"
 	}
@@ -1718,6 +1762,8 @@ func cloudProvider(hcp *hyperv1.HostedControlPlane) string {
 	switch {
 	case hcp.Spec.Platform.AWS != nil:
 		return "aws"
+	case hcp.Spec.Platform.Type == hyperv1.IBMCloudPlatform:
+		return "external"
 	default:
 		return ""
 	}

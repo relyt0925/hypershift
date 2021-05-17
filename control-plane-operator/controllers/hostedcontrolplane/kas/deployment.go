@@ -44,10 +44,6 @@ var (
 			kasVolumeKubeletClientCert().Name: "/etc/kubernetes/certs/kubelet",
 			kasVolumeKubeletClientCA().Name:   "/etc/kubernetes/certs/kubelet-ca",
 		},
-		kasContainerVPNClient().Name: {
-			kasVolumeVPNClientConfig().Name: kasVPNWorkingDir + "/config",
-			kasVolumeVPNClientCert().Name:   kasVPNWorkingDir + "/secret",
-		},
 	}
 
 	cloudProviderConfigVolumeMount = util.PodVolumeMounts{
@@ -117,8 +113,6 @@ func (p *KubeAPIServerParams) ReconcileKubeAPIServerDeployment(deployment *appsv
 					util.BuildVolume(kasVolumeEtcdClientCert(), buildKASVolumeEtcdClientCert),
 					util.BuildVolume(kasVolumeOauthMetadata(), buildKASVolumeOauthMetadata),
 					util.BuildVolume(kasVolumeClientCA(), buildKASVolumeClientCA),
-					util.BuildVolume(kasVolumeVPNClientCert(), buildKASVolumeVPNClientCert),
-					util.BuildVolume(kasVolumeVPNClientConfig(), buildKASVolumeVPNClientConfig),
 					util.BuildVolume(kasVolumeKubeletClientCert(), buildKASVolumeKubeletClientCert),
 					util.BuildVolume(kasVolumeKubeletClientCA(), buildKASVolumeKubeletClientCA),
 				},

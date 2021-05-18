@@ -215,7 +215,7 @@ func NewKubeAPIServerParams(hcp *hyperv1.HostedControlPlane, images map[string]s
 	}
 	if hcp.Annotations != nil {
 		if _, ok := hcp.Annotations[hyperv1.EtcdClientOverrideAnnotation]; ok {
-			params.EtcdURL = hcp.Annotations[hyperv1.EtcdClientOverrideAnnotation]
+			params.EtcdURL = "https://" + hcp.Annotations[hyperv1.EtcdClientOverrideAnnotation] + ":2379"
 		}
 		if _, ok := hcp.Annotations[hyperv1.SecurePortOverrideAnnotation]; ok {
 			portNumber, err := strconv.ParseInt(hcp.Annotations[hyperv1.SecurePortOverrideAnnotation], 10, 32)

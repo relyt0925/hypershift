@@ -75,8 +75,7 @@ const (
 	etcdAvailableCheckInterval  = 10 * time.Second
 	kasAvailableCheckInterval   = 10 * time.Second
 
-	kubeAPIServerPort            = 6443
-	etcdClientOverrideAnnotation = "hypershift.openshift.io/etcd-client-override"
+	kubeAPIServerPort = 6443
 )
 
 var (
@@ -291,7 +290,7 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Reconcile etcd cluster status
-	if _, ok := hostedControlPlane.Annotations[etcdClientOverrideAnnotation]; !ok {
+	if _, ok := hostedControlPlane.Annotations[hyperv1.EtcdClientOverrideAnnotation]; !ok {
 		etcdCluster := manifests.EtcdCluster(hostedControlPlane.Namespace)
 		var err error
 		if err = r.Get(ctx, types.NamespacedName{Namespace: etcdCluster.Namespace, Name: etcdCluster.Name}, etcdCluster); err != nil && !apierrors.IsNotFound(err) {
@@ -368,7 +367,7 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}
 
-	if _, ok := hostedControlPlane.Annotations[etcdClientOverrideAnnotation]; !ok {
+	if _, ok := hostedControlPlane.Annotations[hyperv1.EtcdClientOverrideAnnotation]; !ok {
 		// Reconcile etcd
 		r.Log.Info("Reconciling Etcd")
 		if err = r.reconcileEtcd(ctx, hostedControlPlane, releaseImage); err != nil {
@@ -1264,8 +1263,8 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 	params.EtcdClientName = "etcd-client"
 	params.NetworkType = "OpenShiftSDN"
 	if hcp.Annotations != nil {
-		if _, ok := hcp.Annotations[etcdClientOverrideAnnotation]; ok {
-			params.EtcdClientName = hcp.Annotations[etcdClientOverrideAnnotation]
+		if _, ok := hcp.Annotations[hyperv1.EtcdClientOverrideAnnotation]; ok {
+			params.EtcdClientName = hcp.Annotations[hyperv1.EtcdClientOverrideAnnotation]
 		}
 	}
 	params.ImageRegistryHTTPSecret = generateImageRegistrySecret()

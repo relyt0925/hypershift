@@ -97,7 +97,6 @@ func (p *KubeAPIServerParams) ReconcileKubeAPIServerDeployment(deployment *appsv
 				Containers: []corev1.Container{
 					util.BuildContainer(kasContainerApplyBootstrap(), p.buildKASContainerApplyBootstrap),
 					util.BuildContainer(kasContainerMain(), p.buildKASContainerMain),
-					util.BuildContainer(kasContainerVPNClient(), p.buildKASContainerVPNClient),
 				},
 				Volumes: []corev1.Volume{
 					util.BuildVolume(kasVolumeBootstrapManifests(), buildKASVolumeBootstrapManifests),

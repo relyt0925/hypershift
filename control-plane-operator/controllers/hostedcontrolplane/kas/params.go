@@ -2,6 +2,7 @@ package kas
 
 import (
 	"fmt"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -209,6 +210,17 @@ func NewKubeAPIServerParams(hcp *hyperv1.HostedControlPlane, images map[string]s
 		params.Replicas = 3
 	default:
 		params.Replicas = 1
+	}
+	if hcp.Annotations != nil {
+		if _, ok := hcp.Annotations[hyperv1.EtcdClientOverrideAnnotation]; ok {
+			params.EtcdURL = hcp.Annotations[hyperv1.EtcdClientOverrideAnnotation]
+		}
+		if _, ok := hcp.Annotations[hyperv1.SecurePortOverrideAnnotation]; ok {
+			portNumber, err := strconv.ParseInt(hcp.Annotations[hyperv1.SecurePortOverrideAnnotation], 10, 32)
+			if err == nil {
+				params.APIServerPort = int32(portNumber)
+			}
+		}
 	}
 	params.KubeConfigRef = hcp.Spec.KubeConfig
 	params.OwnerReference = config.ControllerOwnerRef(hcp)

@@ -136,6 +136,14 @@ const (
 	IBMCloudPlatform PlatformType = "IBMCloud"
 )
 
+const (
+	EtcdClientOverrideAnnotation  = "hypershift.openshift.io/etcd-client-override"
+	SecurePortOverrideAnnotation  = "hypershift.openshift.io/secureport-override"
+	IdentityProviderAnnotation    = "hypershift.openshift.io/identity-provider"
+	NamedCertAnnotation           = "hypershift.openshift.io/named-cert"
+	NetworkTypeOverrideAnnotation = "hypershift.openshift.io/networktype-override"
+)
+
 type PlatformSpec struct {
 	// Type is the underlying infrastructure provider for the cluster.
 	//

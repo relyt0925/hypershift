@@ -77,12 +77,7 @@ const (
 	etcdAvailableCheckInterval  = 10 * time.Second
 	kasAvailableCheckInterval   = 10 * time.Second
 
-	kubeAPIServerPort             = 6443
-	etcdClientOverrideAnnotation  = "hypershift.openshift.io/etcd-client-override"
-	securePortOverrideAnnotation  = "hypershift.openshift.io/secureport-override"
-	identityProviderAnnotation    = "hypershift.openshift.io/identity-provider"
-	namedCertAnnotation           = "hypershift.openshift.io/named-cert"
-	networkTypeOverrideAnnotation = "hypershift.openshift.io/networktype-override"
+	kubeAPIServerPort = 6443
 )
 
 var (
@@ -297,7 +292,7 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Reconcile etcd cluster status
-	if _, ok := hostedControlPlane.Annotations[etcdClientOverrideAnnotation]; !ok {
+	if _, ok := hostedControlPlane.Annotations[hyperv1.EtcdClientOverrideAnnotation]; !ok {
 		etcdCluster := manifests.EtcdCluster(hostedControlPlane.Namespace)
 		var err error
 		if err = r.Get(ctx, types.NamespacedName{Namespace: etcdCluster.Namespace, Name: etcdCluster.Name}, etcdCluster); err != nil && !apierrors.IsNotFound(err) {
@@ -374,7 +369,7 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}
 
-	if _, ok := hostedControlPlane.Annotations[etcdClientOverrideAnnotation]; !ok {
+	if _, ok := hostedControlPlane.Annotations[hyperv1.EtcdClientOverrideAnnotation]; !ok {
 		// Reconcile etcd
 		r.Log.Info("Reconciling Etcd")
 		if err = r.reconcileEtcd(ctx, hostedControlPlane, releaseImage); err != nil {
@@ -494,7 +489,7 @@ func (r *HostedControlPlaneReconciler) reconcileAPIServerService(ctx context.Con
 	p := kas.NewKubeAPIServerServiceParams(hcp)
 	apiServerService := manifests.KubeAPIServerService(hcp.Namespace)
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, apiServerService, func() error {
-		return p.ReconcileService(apiServerService, serviceStrategy)
+		return kas.ReconcileService(apiServerService, serviceStrategy, p.OwnerReference, p.APIServerPort)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile API server service: %w", err)
 	}
@@ -625,7 +620,7 @@ func (r *HostedControlPlaneReconciler) reconcileAPIServerServiceStatus(ctx conte
 		return
 	}
 	p := kas.NewKubeAPIServerServiceParams(hcp)
-	return p.ReconcileServiceStatus(svc, serviceStrategy)
+	return kas.ReconcileServiceStatus(svc, serviceStrategy, p.APIServerPort)
 }
 
 func (r *HostedControlPlaneReconciler) reconcileVPNServerServiceStatus(ctx context.Context, hcp *hyperv1.HostedControlPlane) (host string, port int32, err error) {
@@ -1270,24 +1265,24 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 	params.EtcdClientName = "etcd-client"
 	params.NetworkType = "OpenShiftSDN"
 	if hcp.Annotations != nil {
-		if _, ok := hcp.Annotations[etcdClientOverrideAnnotation]; ok {
-			params.EtcdClientName = hcp.Annotations[etcdClientOverrideAnnotation]
+		if _, ok := hcp.Annotations[hyperv1.EtcdClientOverrideAnnotation]; ok {
+			params.EtcdClientName = hcp.Annotations[hyperv1.EtcdClientOverrideAnnotation]
 		}
-		if _, ok := hcp.Annotations[securePortOverrideAnnotation]; ok {
-			portNumber, err := strconv.ParseUint(hcp.Annotations[securePortOverrideAnnotation], 10, 32)
+		if _, ok := hcp.Annotations[hyperv1.SecurePortOverrideAnnotation]; ok {
+			portNumber, err := strconv.ParseUint(hcp.Annotations[hyperv1.SecurePortOverrideAnnotation], 10, 32)
 			if err == nil {
 				params.InternalAPIPort = uint(portNumber)
 			}
 		}
-		if _, ok := hcp.Annotations[networkTypeOverrideAnnotation]; ok {
-			params.NetworkType = hcp.Annotations[networkTypeOverrideAnnotation]
+		if _, ok := hcp.Annotations[hyperv1.NetworkTypeOverrideAnnotation]; ok {
+			params.NetworkType = hcp.Annotations[hyperv1.NetworkTypeOverrideAnnotation]
 		}
-		if _, ok := hcp.Annotations[identityProviderAnnotation]; ok {
-			params.IdentityProviders = hcp.Annotations[identityProviderAnnotation]
+		if _, ok := hcp.Annotations[hyperv1.IdentityProviderAnnotation]; ok {
+			params.IdentityProviders = hcp.Annotations[hyperv1.IdentityProviderAnnotation]
 		}
-		if _, ok := hcp.Annotations[namedCertAnnotation]; ok {
+		if _, ok := hcp.Annotations[hyperv1.NamedCertAnnotation]; ok {
 			var namedCertStruct []render.NamedCert
-			err := json.Unmarshal([]byte(hcp.Annotations[namedCertAnnotation]), &namedCertStruct)
+			err := json.Unmarshal([]byte(hcp.Annotations[hyperv1.NamedCertAnnotation]), &namedCertStruct)
 			if err == nil {
 				params.NamedCerts = namedCertStruct
 			}
@@ -1352,8 +1347,8 @@ func (r *HostedControlPlaneReconciler) reconcileKubeAPIServerServiceNodePortReso
 	}
 	var securePort int32 = defaultAPIServerPort
 	if hcp.Annotations != nil {
-		if _, ok := hcp.Annotations[securePortOverrideAnnotation]; ok {
-			portNumber, err := strconv.ParseInt(hcp.Annotations[securePortOverrideAnnotation], 10, 32)
+		if _, ok := hcp.Annotations[hyperv1.SecurePortOverrideAnnotation]; ok {
+			portNumber, err := strconv.ParseInt(hcp.Annotations[hyperv1.SecurePortOverrideAnnotation], 10, 32)
 			if err == nil {
 				securePort = int32(portNumber)
 			}

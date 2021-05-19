@@ -46,6 +46,7 @@ var (
 		},
 		kasContainerPortieries().Name: {
 			kasVolumeLocalhostKubeconfig().Name: "/etc/openshift/kubeconfig",
+			kasVolumePortierisCerts().Name:      "/etc/certs",
 		},
 	}
 
@@ -117,6 +118,7 @@ func (p *KubeAPIServerParams) ReconcileKubeAPIServerDeployment(deployment *appsv
 					util.BuildVolume(kasVolumeClientCA(), buildKASVolumeClientCA),
 					util.BuildVolume(kasVolumeKubeletClientCert(), buildKASVolumeKubeletClientCert),
 					util.BuildVolume(kasVolumeKubeletClientCA(), buildKASVolumeKubeletClientCA),
+					util.BuildVolume(kasVolumePortierisCerts(), buildKASVolumePortierisCerts),
 				},
 			},
 		},
@@ -499,5 +501,17 @@ func applyNamedCertificateMounts(certs []configv1.APIServerNamedServingCert, spe
 			Name:      volumeName,
 			MountPath: fmt.Sprintf("%s-%d", kasNamedCertificateMountPathPrefix, i+1),
 		})
+	}
+}
+
+func kasVolumePortierisCerts() *corev1.Volume {
+	return &corev1.Volume{
+		Name: "portieris-certs",
+	}
+}
+
+func buildKASVolumePortierisCerts(v *corev1.Volume) {
+	v.Secret = &corev1.SecretVolumeSource{
+		SecretName: v.Name,
 	}
 }

@@ -143,6 +143,7 @@ func NewKubeAPIServerParams(hcp *hyperv1.HostedControlPlane, images map[string]s
 			CLI:                   images["cli"],
 			ClusterConfigOperator: images["cluster-config-operator"],
 			VPN:                   images["vpn"],
+			Portieris:             images["portieris"],
 		},
 	}
 	unprivilegedSecurityContext := corev1.SecurityContext{

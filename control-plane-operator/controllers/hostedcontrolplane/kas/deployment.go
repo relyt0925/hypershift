@@ -202,7 +202,7 @@ func (p *KubeAPIServerParams) buildKASContainerVPNClient(c *corev1.Container) {
 	c.Image = p.Images.VPN
 	c.ImagePullPolicy = corev1.PullAlways
 	c.Command = []string{
-		"/portieris",
+		"/usr/sbin/openvpn",
 	}
 	c.Args = []string{
 		"--config",
@@ -222,7 +222,7 @@ func (p *KubeAPIServerParams) buildKASContainerPortieries(c *corev1.Container) {
 	c.Image = p.Images.Portieris
 	c.ImagePullPolicy = corev1.PullAlways
 	c.Command = []string{
-		"/usr/sbin/openvpn",
+		"/portieris",
 	}
 	c.Args = []string{
 		"--kubeconfig=/etc/openshift/kubeconfig/kubeconfig",

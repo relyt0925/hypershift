@@ -489,6 +489,12 @@ func (r *HostedControlPlaneReconciler) reconcileAPIServerService(ctx context.Con
 		return fmt.Errorf("APIServer service strategy not specified")
 	}
 	p := kas.NewKubeAPIServerServiceParams(hcp)
+	if _, ok := hcp.Annotations[hyperv1.SecurePortOverrideAnnotation]; ok {
+		portNumber, err := strconv.ParseInt(hcp.Annotations[hyperv1.SecurePortOverrideAnnotation], 10, 32)
+		if err == nil {
+			p.APIServerPort = int(portNumber)
+		}
+	}
 	apiServerService := manifests.KubeAPIServerService(hcp.Namespace)
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, apiServerService, func() error {
 		return kas.ReconcileService(apiServerService, serviceStrategy, p.OwnerReference, p.APIServerPort)

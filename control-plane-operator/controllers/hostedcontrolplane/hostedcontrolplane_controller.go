@@ -1046,41 +1046,45 @@ func (r *HostedControlPlaneReconciler) reconcileVPN(ctx context.Context, hcp *hy
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile vpn service account: %w", err)
 	}
-	serverConfig := manifests.VPNServerConfig(hcp.Namespace)
-	if _, err := controllerutil.CreateOrUpdate(ctx, r, serverConfig, func() error {
-		return p.ReconcileVPNServerConfig(serverConfig)
-	}); err != nil {
-		return fmt.Errorf("failed to reconcile vpn server config: %w", err)
-	}
-	serverClientConfig := manifests.VPNServerClientConfig(hcp.Namespace)
-	if _, err := controllerutil.CreateOrUpdate(ctx, r, serverClientConfig, func() error {
-		return p.ReconcileVPNServerClientConfig(serverClientConfig)
-	}); err != nil {
-		return fmt.Errorf("failed to reconcile vpn server client config: %w", err)
-	}
-	kubeAPIServerConfig := manifests.VPNKubeAPIServerClientConfig(hcp.Namespace)
-	if _, err := controllerutil.CreateOrUpdate(ctx, r, kubeAPIServerConfig, func() error {
-		return p.ReconcileKubeAPIServerClientConfig(kubeAPIServerConfig)
-	}); err != nil {
-		return fmt.Errorf("failed to reconcile vpn kas client config: %w", err)
-	}
-	clientConfig := manifests.VPNWorkerClientConfig(hcp.Namespace)
-	if _, err := controllerutil.CreateOrUpdate(ctx, r, clientConfig, func() error {
-		return p.ReconcileWorkerClientConfig(clientConfig)
-	}); err != nil {
-		return fmt.Errorf("failed to reconcile vpn worker client config: %w", err)
-	}
-	serverDeployment := manifests.VPNServerDeployment(hcp.Namespace)
-	if _, err := controllerutil.CreateOrUpdate(ctx, r, serverDeployment, func() error {
-		return p.ReconcileServerDeployment(serverDeployment)
-	}); err != nil {
-		return fmt.Errorf("failed to reconcile vpn server deployment: %w", err)
-	}
-	clientDeployment := manifests.VPNWorkerClientDeployment(hcp.Namespace)
-	if _, err := controllerutil.CreateOrUpdate(ctx, r, clientDeployment, func() error {
-		return p.ReconcileWorkerClientDeployment(clientDeployment)
-	}); err != nil {
-		return fmt.Errorf("failed to reconcile vpn client deployment: %w", err)
+	if hcp.Annotations != nil {
+		if _, ok := hcp.Annotations[hyperv1.EtcdClientOverrideAnnotation]; !ok {
+			serverConfig := manifests.VPNServerConfig(hcp.Namespace)
+			if _, err := controllerutil.CreateOrUpdate(ctx, r, serverConfig, func() error {
+				return p.ReconcileVPNServerConfig(serverConfig)
+			}); err != nil {
+				return fmt.Errorf("failed to reconcile vpn server config: %w", err)
+			}
+			serverClientConfig := manifests.VPNServerClientConfig(hcp.Namespace)
+			if _, err := controllerutil.CreateOrUpdate(ctx, r, serverClientConfig, func() error {
+				return p.ReconcileVPNServerClientConfig(serverClientConfig)
+			}); err != nil {
+				return fmt.Errorf("failed to reconcile vpn server client config: %w", err)
+			}
+			kubeAPIServerConfig := manifests.VPNKubeAPIServerClientConfig(hcp.Namespace)
+			if _, err := controllerutil.CreateOrUpdate(ctx, r, kubeAPIServerConfig, func() error {
+				return p.ReconcileKubeAPIServerClientConfig(kubeAPIServerConfig)
+			}); err != nil {
+				return fmt.Errorf("failed to reconcile vpn kas client config: %w", err)
+			}
+			clientConfig := manifests.VPNWorkerClientConfig(hcp.Namespace)
+			if _, err := controllerutil.CreateOrUpdate(ctx, r, clientConfig, func() error {
+				return p.ReconcileWorkerClientConfig(clientConfig)
+			}); err != nil {
+				return fmt.Errorf("failed to reconcile vpn worker client config: %w", err)
+			}
+			serverDeployment := manifests.VPNServerDeployment(hcp.Namespace)
+			if _, err := controllerutil.CreateOrUpdate(ctx, r, serverDeployment, func() error {
+				return p.ReconcileServerDeployment(serverDeployment)
+			}); err != nil {
+				return fmt.Errorf("failed to reconcile vpn server deployment: %w", err)
+			}
+			clientDeployment := manifests.VPNWorkerClientDeployment(hcp.Namespace)
+			if _, err := controllerutil.CreateOrUpdate(ctx, r, clientDeployment, func() error {
+				return p.ReconcileWorkerClientDeployment(clientDeployment)
+			}); err != nil {
+				return fmt.Errorf("failed to reconcile vpn client deployment: %w", err)
+			}
+		}
 	}
 	return nil
 }

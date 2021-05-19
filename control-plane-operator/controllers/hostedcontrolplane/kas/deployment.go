@@ -121,6 +121,7 @@ func (p *KubeAPIServerParams) ReconcileKubeAPIServerDeployment(deployment *appsv
 			},
 		},
 	}
+	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, util.BuildContainer(kasContainerPortieries(), p.buildKASContainerPortieries))
 	p.Scheduling.ApplyTo(&deployment.Spec.Template.Spec)
 	p.SecurityContexts.ApplyTo(&deployment.Spec.Template.Spec)
 	p.Resources.ApplyTo(&deployment.Spec.Template.Spec)

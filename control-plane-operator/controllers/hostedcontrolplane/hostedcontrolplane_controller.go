@@ -340,9 +340,11 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Reconcile PKI
-	r.Log.Info("Reconciling PKI")
-	if err = r.reconcilePKI(ctx, hostedControlPlane, infraStatus); err != nil {
-		r.Log.Error(err, "failed to reconcile PKI")
+	if _, ok := hostedControlPlane.Annotations[hyperv1.EtcdClientOverrideAnnotation]; !ok {
+		r.Log.Info("Reconciling PKI")
+		if err = r.reconcilePKI(ctx, hostedControlPlane, infraStatus); err != nil {
+			r.Log.Error(err, "failed to reconcile PKI")
+		}
 	}
 
 	// Reconcile Cloud Provider Config

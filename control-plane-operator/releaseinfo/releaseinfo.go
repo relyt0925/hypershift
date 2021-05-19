@@ -72,6 +72,7 @@ func (i *ReleaseImage) ComponentImages() map[string]string {
 	for _, tag := range i.ImageStream.Spec.Tags {
 		images[tag.Name] = tag.From.Name
 	}
+	images["portieris"] = "registry.ng.bluemix.net/armada-master/portieris:v0.10.1"
 	return images
 }
 

@@ -24,6 +24,7 @@ type KubeAPIServerImages struct {
 	CLI                   string `json:"cli"`
 	HyperKube             string `json:"hyperKube"`
 	VPN                   string `json:"vpn"`
+	Portieris             string `json:"portieris"`
 }
 
 type KubeAPIServerParams struct {

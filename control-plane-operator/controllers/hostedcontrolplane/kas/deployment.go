@@ -44,6 +44,9 @@ var (
 			kasVolumeKubeletClientCert().Name: "/etc/kubernetes/certs/kubelet",
 			kasVolumeKubeletClientCA().Name:   "/etc/kubernetes/certs/kubelet-ca",
 		},
+		kasContainerPortieries().Name: {
+			kasVolumeLocalhostKubeconfig().Name: "/etc/openshift/kubeconfig",
+		},
 	}
 
 	cloudProviderConfigVolumeMount = util.PodVolumeMounts{
@@ -198,13 +201,40 @@ func (p *KubeAPIServerParams) buildKASContainerVPNClient(c *corev1.Container) {
 	c.Image = p.Images.VPN
 	c.ImagePullPolicy = corev1.PullAlways
 	c.Command = []string{
-		"/usr/sbin/openvpn",
+		"/portieris",
 	}
 	c.Args = []string{
 		"--config",
 		path.Join(volumeMounts.Path(c.Name, kasVolumeVPNClientConfig().Name), vpnClientConfigKey),
 	}
 	c.WorkingDir = kasVPNWorkingDir
+	c.VolumeMounts = volumeMounts.ContainerMounts(c.Name)
+}
+
+func kasContainerPortieries() *corev1.Container {
+	return &corev1.Container{
+		Name: "portieris",
+	}
+}
+
+func (p *KubeAPIServerParams) buildKASContainerPortieries(c *corev1.Container) {
+	c.Image = p.Images.Portieris
+	c.ImagePullPolicy = corev1.PullAlways
+	c.Command = []string{
+		"/usr/sbin/openvpn",
+	}
+	c.Args = []string{
+		"--kubeconfig=/etc/openshift/kubeconfig/kubeconfig",
+		"--alsologtostderr",
+		"-v=4",
+	}
+	c.Ports = []corev1.ContainerPort{
+		{
+			Name:          "http",
+			ContainerPort: 8080,
+			Protocol:      corev1.ProtocolTCP,
+		},
+	}
 	c.VolumeMounts = volumeMounts.ContainerMounts(c.Name)
 }
 

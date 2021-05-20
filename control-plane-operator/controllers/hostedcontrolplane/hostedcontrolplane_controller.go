@@ -496,8 +496,19 @@ func (r *HostedControlPlaneReconciler) reconcileAPIServerService(ctx context.Con
 		}
 	}
 	apiServerService := manifests.KubeAPIServerService(hcp.Namespace)
+	var existingServiceData corev1.Service
+	existingNodePort := int32(0)
+	r.Log.Info("Checking for existing service", "serviceName", apiServerService.Name, "namespace", apiServerService.Namespace)
+	if err := r.Client.Get(ctx, client.ObjectKey{Namespace: apiServerService.Namespace, Name: apiServerService.Name}, &existingServiceData); err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+	if len(existingServiceData.Spec.Ports) > 0 && existingServiceData.Spec.Ports[0].NodePort > 0 {
+		r.Log.Info("Existing nodePort found for service", "nodePort", existingServiceData.Spec.Ports[0].NodePort)
+		existingNodePort = existingServiceData.Spec.Ports[0].NodePort
+	}
+
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, apiServerService, func() error {
-		return kas.ReconcileService(apiServerService, serviceStrategy, p.OwnerReference, p.APIServerPort)
+		return kas.ReconcileService(apiServerService, serviceStrategy, p.OwnerReference, p.APIServerPort, existingNodePort)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile API server service: %w", err)
 	}
@@ -511,8 +522,18 @@ func (r *HostedControlPlaneReconciler) reconcileVPNServerService(ctx context.Con
 	}
 	p := vpn.NewVPNServiceParams(hcp)
 	vpnServerService := manifests.VPNServerService(hcp.Namespace)
+	var existingServiceData corev1.Service
+	existingNodePort := int32(0)
+	r.Log.Info("Checking for existing service", "serviceName", vpnServerService.Name, "namespace", vpnServerService.Namespace)
+	if err := r.Client.Get(ctx, client.ObjectKey{Namespace: vpnServerService.Namespace, Name: vpnServerService.Name}, &existingServiceData); err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+	if len(existingServiceData.Spec.Ports) > 0 && existingServiceData.Spec.Ports[0].NodePort > 0 {
+		r.Log.Info("Existing nodePort found for service", "nodePort", existingServiceData.Spec.Ports[0].NodePort)
+		existingNodePort = existingServiceData.Spec.Ports[0].NodePort
+	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, vpnServerService, func() error {
-		return p.ReconcileService(vpnServerService, serviceStrategy)
+		return p.ReconcileService(vpnServerService, serviceStrategy, existingNodePort)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile VPN service: %w", err)
 	}
@@ -526,8 +547,18 @@ func (r *HostedControlPlaneReconciler) reconcileOAuthServerService(ctx context.C
 	}
 	p := oauth.NewOAuthServiceParams(hcp)
 	oauthServerService := manifests.OauthServerService(hcp.Namespace)
+	var existingServiceData corev1.Service
+	existingNodePort := int32(0)
+	r.Log.Info("Checking for existing service", "serviceName", oauthServerService.Name, "namespace", oauthServerService.Namespace)
+	if err := r.Client.Get(ctx, client.ObjectKey{Namespace: oauthServerService.Namespace, Name: oauthServerService.Name}, &existingServiceData); err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+	if len(existingServiceData.Spec.Ports) > 0 && existingServiceData.Spec.Ports[0].NodePort > 0 {
+		r.Log.Info("Existing nodePort found for service", "nodePort", existingServiceData.Spec.Ports[0].NodePort)
+		existingNodePort = existingServiceData.Spec.Ports[0].NodePort
+	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, oauthServerService, func() error {
-		return p.ReconcileService(oauthServerService, serviceStrategy)
+		return p.ReconcileService(oauthServerService, serviceStrategy, existingNodePort)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile OAuth service: %w", err)
 	}
@@ -1113,6 +1144,17 @@ func (r *HostedControlPlaneReconciler) reconcileKubeAPIServer(ctx context.Contex
 		return fmt.Errorf("failed to reconcile service admin kubeconfig secret: %w", err)
 	}
 
+	// The client used by CAPI machine controller expects the kubeconfig to follow this naming and key convention
+	// https://github.com/kubernetes-sigs/cluster-api/blob/5c85a0a01ee44ecf7c8a3c3fdc867a88af87d73c/util/secret/secret.go#L29-L33
+	capiKubeconfigSecret := manifests.KASServiceCAPIKubeconfigSecret(hcp.Namespace, hcp.Spec.InfraID)
+	if _, err := controllerutil.CreateOrUpdate(ctx, r, capiKubeconfigSecret, func() error {
+		// TODO(alberto): This secret is currently using the cluster-admin kubeconfig for the guest cluster.
+		// We should create a separate kubeconfig with a tight set of permissions for it to use.
+		return p.ReconcileServiceCAPIKubeconfigSecret(capiKubeconfigSecret, clientCertSecret, rootCA)
+	}); err != nil {
+		return fmt.Errorf("failed to reconcile CAPI service admin kubeconfig secret: %w", err)
+	}
+
 	localhostKubeconfigSecret := manifests.KASLocalhostKubeconfigSecret(hcp.Namespace)
 	if _, err := controllerutil.CreateOrUpdate(ctx, r, localhostKubeconfigSecret, func() error {
 		return p.ReconcileLocalhostKubeconfigSecret(localhostKubeconfigSecret, clientCertSecret, rootCA)
@@ -1357,19 +1399,10 @@ func (r *HostedControlPlaneReconciler) reconcileKubeAPIServerServiceNodePortReso
 		r.Log.Info("Preserving existing nodePort for service", "nodePort", kubeAPIServerServiceData.Spec.Ports[0].NodePort)
 		nodePort = kubeAPIServerServiceData.Spec.Ports[0].NodePort
 	}
-	var securePort int32 = defaultAPIServerPort
-	if hcp.Annotations != nil {
-		if _, ok := hcp.Annotations[hyperv1.SecurePortOverrideAnnotation]; ok {
-			portNumber, err := strconv.ParseInt(hcp.Annotations[hyperv1.SecurePortOverrideAnnotation], 10, 32)
-			if err == nil {
-				securePort = int32(portNumber)
-			}
-		}
-	}
 	r.Log.Info("Updating KubeAPI service")
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
 		svc.OwnerReferences = ensureHCPOwnerRef(hcp, svc.OwnerReferences)
-		return reconcileKubeAPIServerServiceNodePort(svc, nodePort, securePort)
+		return reconcileKubeAPIServerServiceNodePort(svc, nodePort)
 	})
 	return err
 }
@@ -1389,8 +1422,8 @@ func (r *HostedControlPlaneReconciler) updateStatusKubeAPIServerServiceNodePort(
 	return nil
 }
 
-func reconcileKubeAPIServerServiceNodePort(svc *corev1.Service, nodePort int32, securePort int32) error {
-	svc.Spec.Ports = KubeAPIServerServicePorts(securePort)
+func reconcileKubeAPIServerServiceNodePort(svc *corev1.Service, nodePort int32) error {
+	svc.Spec.Ports = KubeAPIServerServicePorts(defaultAPIServerPort)
 	if nodePort > 0 {
 		svc.Spec.Ports[0].NodePort = nodePort
 	}

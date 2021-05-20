@@ -236,7 +236,7 @@ func (p *KubeAPIServerParams) buildKASContainerPortieries(c *corev1.Container) {
 	c.Ports = []corev1.ContainerPort{
 		{
 			Name:          "http",
-			ContainerPort: 8080,
+			ContainerPort: 8000,
 			Protocol:      corev1.ProtocolTCP,
 		},
 	}

@@ -118,12 +118,14 @@ func (p *KubeAPIServerParams) ReconcileKubeAPIServerDeployment(deployment *appsv
 					util.BuildVolume(kasVolumeClientCA(), buildKASVolumeClientCA),
 					util.BuildVolume(kasVolumeKubeletClientCert(), buildKASVolumeKubeletClientCert),
 					util.BuildVolume(kasVolumeKubeletClientCA(), buildKASVolumeKubeletClientCA),
-					util.BuildVolume(kasVolumePortierisCerts(), buildKASVolumePortierisCerts),
 				},
 			},
 		},
 	}
-	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, util.BuildContainer(kasContainerPortieries(), p.buildKASContainerPortieries))
+	if len(p.Images.Portieris) > 0 {
+		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, util.BuildContainer(kasContainerPortieries(), p.buildKASContainerPortieries))
+		deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, util.BuildVolume(kasVolumePortierisCerts(), buildKASVolumePortierisCerts))
+	}
 	p.Scheduling.ApplyTo(&deployment.Spec.Template.Spec)
 	p.SecurityContexts.ApplyTo(&deployment.Spec.Template.Spec)
 	p.Resources.ApplyTo(&deployment.Spec.Template.Spec)

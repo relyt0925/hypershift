@@ -143,7 +143,6 @@ func NewKubeAPIServerParams(hcp *hyperv1.HostedControlPlane, images map[string]s
 			CLI:                   images["cli"],
 			ClusterConfigOperator: images["cluster-config-operator"],
 			VPN:                   images["vpn"],
-			Portieris:             images["portieris"],
 		},
 	}
 	unprivilegedSecurityContext := corev1.SecurityContext{
@@ -224,6 +223,9 @@ func NewKubeAPIServerParams(hcp *hyperv1.HostedControlPlane, images map[string]s
 			if err == nil {
 				params.APIServerPort = int32(portNumber)
 			}
+		}
+		if _, ok := hcp.Annotations[hyperv1.PortierisImageAnnotation]; ok {
+			params.Images.Portieris = hcp.Annotations[hyperv1.PortierisImageAnnotation]
 		}
 		if _, ok := hcp.Annotations[hyperv1.NamedCertAnnotation]; ok {
 			var namedCertStruct []render.NamedCert

@@ -58,7 +58,7 @@ var (
 
 	kasAuditWebhookConfigFileVolumeMount = util.PodVolumeMounts{
 		kasContainerMain().Name: {
-			kasAuditWebhookConfigFileVolume().Name: "/etc/kubernetes/audit",
+			kasAuditWebhookConfigFileVolume().Name: "/etc/kubernetes/auditwebhook",
 		},
 	}
 

@@ -38,6 +38,7 @@ type KubeAPIServerParams struct {
 	CloudProvider       string                      `json:"cloudProvider"`
 	CloudProviderConfig corev1.LocalObjectReference `json:"cloudProviderConfig"`
 
+	AuditWebhookEnabled  bool                         `json:"auditWebhookEnabled"`
 	AdvertiseAddress     string                       `json:"advertiseAddress"`
 	ExternalAddress      string                       `json:"externalAddress"`
 	ExternalPort         int32                        `json:"externalPort"`
@@ -240,6 +241,9 @@ func NewKubeAPIServerParams(hcp *hyperv1.HostedControlPlane, images map[string]s
 					})
 				}
 			}
+		}
+		if _, ok := hcp.Annotations[hyperv1.AuditWebhookEnabledAnnotation]; ok {
+			params.AuditWebhookEnabled = true
 		}
 	}
 	params.KubeConfigRef = hcp.Spec.KubeConfig

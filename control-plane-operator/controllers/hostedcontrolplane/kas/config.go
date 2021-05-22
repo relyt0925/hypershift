@@ -111,6 +111,9 @@ func (p *KubeAPIServerParams) generateConfig(ns string) *kcpv1.KubeAPIServerConf
 	if p.CloudProvider != "" {
 		args.Set("cloud-provider", p.CloudProvider)
 	}
+	if p.AuditWebhookEnabled {
+		args.Set("audit-webhook-config-file", p.auditWebhookConfigFile())
+	}
 	args.Set("enable-admission-plugins", admissionPlugins()...)
 	args.Set("enable-aggregator-routing", "true")
 	args.Set("enable-logs-handler", "false")
@@ -162,6 +165,14 @@ func (p *KubeAPIServerParams) cloudProviderConfig() string {
 	if p.CloudProviderConfig.Name != "" {
 		cfgDir := cloudProviderConfigVolumeMount.Path(kasContainerMain().Name, kasVolumeCloudConfig().Name)
 		return path.Join(cfgDir, cloud.ProviderConfigKey(p.CloudProvider))
+	}
+	return ""
+}
+
+func (p *KubeAPIServerParams) auditWebhookConfigFile() string {
+	if p.AuditWebhookEnabled {
+		cfgDir := kasAuditWebhookConfigFileVolumeMount.Path(kasContainerMain().Name, kasAuditWebhookConfigFileVolume().Name)
+		return path.Join(cfgDir, "webhook-kubeconfig")
 	}
 	return ""
 }

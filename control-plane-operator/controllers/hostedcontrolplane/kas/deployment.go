@@ -56,6 +56,12 @@ var (
 		},
 	}
 
+	kasAuditWebhookConfigFileVolumeMount = util.PodVolumeMounts{
+		kasContainerMain().Name: {
+			kasAuditWebhookConfigFileVolume().Name: "/etc/kubernetes/audit",
+		},
+	}
+
 	// volume mounts in apply bootstrap container
 	applyWorkMountPath       = "/work"
 	applyKubeconfigMountPath = "/var/secrets/localhost-kubeconfig"
@@ -131,6 +137,7 @@ func (p *KubeAPIServerParams) ReconcileKubeAPIServerDeployment(deployment *appsv
 	p.Resources.ApplyTo(&deployment.Spec.Template.Spec)
 	applyNamedCertificateMounts(p.APIServer.Spec.ServingCerts.NamedCertificates, &deployment.Spec.Template.Spec)
 	p.applyCloudConfigVolumeMount(&deployment.Spec.Template.Spec)
+	p.applyKASAuditWebhookConfigFileVolume(&deployment.Spec.Template.Spec)
 	return nil
 }
 
@@ -515,5 +522,34 @@ func kasVolumePortierisCerts() *corev1.Volume {
 func buildKASVolumePortierisCerts(v *corev1.Volume) {
 	v.Secret = &corev1.SecretVolumeSource{
 		SecretName: v.Name,
+	}
+}
+
+func kasAuditWebhookConfigFileVolume() *corev1.Volume {
+	return &corev1.Volume{
+		Name: "apiserver-audit-cm",
+	}
+}
+
+func (p *KubeAPIServerParams) buildKASAuditWebhookConfigFileVolume(v *corev1.Volume) {
+	v.ConfigMap = &corev1.ConfigMapVolumeSource{}
+	v.ConfigMap.Name = manifests.KASAuditWebhookConfigFileVolume("").Name
+}
+
+func (p *KubeAPIServerParams) applyKASAuditWebhookConfigFileVolume(podSpec *corev1.PodSpec) {
+	if p.AuditWebhookEnabled {
+		podSpec.Volumes = append(podSpec.Volumes, util.BuildVolume(kasAuditWebhookConfigFileVolume(), p.buildKASAuditWebhookConfigFileVolume))
+		var container *corev1.Container
+		for i, c := range podSpec.Containers {
+			if c.Name == kasContainerMain().Name {
+				container = &podSpec.Containers[i]
+				break
+			}
+		}
+		if container == nil {
+			panic("main kube apiserver container not found in spec")
+		}
+		container.VolumeMounts = append(container.VolumeMounts,
+			kasAuditWebhookConfigFileVolumeMount.ContainerMounts(kasContainerMain().Name)...)
 	}
 }

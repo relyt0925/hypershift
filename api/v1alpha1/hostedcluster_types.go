@@ -144,6 +144,7 @@ const (
 	NetworkTypeOverrideAnnotation = "hypershift.openshift.io/networktype-override"
 	NamedCertSecretName           = "named-cert-info"
 	PortierisImageAnnotation      = "hypershift.openshift.io/portieris-image"
+	AuditWebhookEnabledAnnotation = "hypershift.openshift.io/audit-webhook-enabled"
 )
 
 type PlatformSpec struct {

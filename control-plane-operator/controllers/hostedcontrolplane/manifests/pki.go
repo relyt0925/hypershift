@@ -202,3 +202,12 @@ func MachineConfigServerCert(ns string) *corev1.Secret {
 		},
 	}
 }
+
+func KASAuditWebhookConfigFileVolume(ns string) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "apiserver-audit-cm",
+			Namespace: ns,
+		},
+	}
+}

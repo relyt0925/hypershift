@@ -50,7 +50,7 @@ var (
 		},
 		kasContainerKMS().Name: {
 			kasVolumeKMSSocket().Name: "/tmp",
-			kasVolumeKMSKP().Name:     " /tmp/kp",
+			kasVolumeKMSKP().Name:     "/tmp/kp",
 		},
 	}
 

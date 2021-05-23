@@ -48,6 +48,10 @@ var (
 			kasVolumeLocalhostKubeconfig().Name: "/etc/openshift/kubeconfig",
 			kasVolumePortierisCerts().Name:      "/etc/certs",
 		},
+		kasContainerKMS().Name: {
+			kasVolumeKMSSocket().Name: "/tmp",
+			kasVolumeKMSKP().Name:     " /tmp/kp",
+		},
 	}
 
 	cloudProviderConfigVolumeMount = util.PodVolumeMounts{
@@ -59,6 +63,12 @@ var (
 	kasAuditWebhookConfigFileVolumeMount = util.PodVolumeMounts{
 		kasContainerMain().Name: {
 			kasAuditWebhookConfigFileVolume().Name: "/etc/kubernetes/auditwebhook",
+		},
+	}
+
+	kasKMSVolumeMounts = util.PodVolumeMounts{
+		kasContainerMain().Name: {
+			kasVolumeKMSSocket().Name: "/tmp",
 		},
 	}
 
@@ -138,6 +148,7 @@ func (p *KubeAPIServerParams) ReconcileKubeAPIServerDeployment(deployment *appsv
 	applyNamedCertificateMounts(p.APIServer.Spec.ServingCerts.NamedCertificates, &deployment.Spec.Template.Spec)
 	p.applyCloudConfigVolumeMount(&deployment.Spec.Template.Spec)
 	p.applyKASAuditWebhookConfigFileVolume(&deployment.Spec.Template.Spec)
+	p.applyKMSVolumeMounts(&deployment.Spec.Template.Spec)
 	return nil
 }
 
@@ -551,5 +562,115 @@ func (p *KubeAPIServerParams) applyKASAuditWebhookConfigFileVolume(podSpec *core
 		}
 		container.VolumeMounts = append(container.VolumeMounts,
 			kasAuditWebhookConfigFileVolumeMount.ContainerMounts(kasContainerMain().Name)...)
+	}
+}
+
+func kasContainerKMS() *corev1.Container {
+	return &corev1.Container{
+		Name: "kms",
+	}
+}
+
+func kasVolumeKMSSocket() *corev1.Volume {
+	return &corev1.Volume{
+		Name: "kms-socket",
+	}
+}
+
+func buildVolumeKMSSocket(v *corev1.Volume) {
+	v.EmptyDir = &corev1.EmptyDirVolumeSource{}
+}
+
+func kasVolumeKMSKP() *corev1.Volume {
+	return &corev1.Volume{
+		Name: "kms-kp",
+	}
+}
+
+func buildVolumeKMSKP(v *corev1.Volume) {
+	v.Secret = &corev1.SecretVolumeSource{}
+	v.Secret.SecretName = "kp-wdek-secret"
+	optionalMount := true
+	v.Secret.Optional = &optionalMount
+}
+
+func (p *KubeAPIServerParams) buildKASContainerKMS(c *corev1.Container) {
+	c.Image = p.Images.KMS
+	c.ImagePullPolicy = corev1.PullAlways
+	c.Env = []corev1.EnvVar{
+		corev1.EnvVar{
+			Name:  "LOG_LEVEL",
+			Value: "info",
+		},
+		corev1.EnvVar{
+			Name:  "NUM_LEN_BYTES",
+			Value: "4",
+		},
+		corev1.EnvVar{
+			Name:  "CACHE_TIMEOUT_IN_HOURS",
+			Value: "1",
+		},
+		corev1.EnvVar{
+			Name:  "RESTART_DELAY_IN_SECONDS",
+			Value: "0",
+		},
+		corev1.EnvVar{
+			Name:  "UNIX_SOCKET_PATH",
+			Value: "/tmp/keyprotectprovider.sock",
+		},
+		corev1.EnvVar{
+			Name:  "KP_TIMEOUT",
+			Value: "10",
+		},
+		corev1.EnvVar{
+			Name:  "KP_WDEK_PATH",
+			Value: "/tmp/kp/wdek",
+		},
+		corev1.EnvVar{
+			Name:  "KP_STATE_PATH",
+			Value: "/tmp/kp/state",
+		},
+		corev1.EnvVar{
+			Name:  "HEALTHZ_PATH",
+			Value: "/healthz",
+		},
+		corev1.EnvVar{
+			Name:  "HEALTHZ_PORT",
+			Value: ":8081",
+		},
+		corev1.EnvVar{
+			Name:  "KP_DATA_JSON",
+			Value: p.KMSKPInfo,
+		},
+		corev1.EnvVar{
+			Name:  "REGION",
+			Value: p.KMSKPRegion,
+		},
+	}
+	c.Ports = []corev1.ContainerPort{
+		{
+			Name:          "http",
+			ContainerPort: 8001,
+			Protocol:      corev1.ProtocolTCP,
+		},
+	}
+	c.VolumeMounts = volumeMounts.ContainerMounts(c.Name)
+}
+
+func (p *KubeAPIServerParams) applyKMSVolumeMounts(podSpec *corev1.PodSpec) {
+	if p.Images.KMS != "" {
+		podSpec.Volumes = append(podSpec.Volumes, util.BuildVolume(kasVolumeKMSKP(), buildVolumeKMSKP), util.BuildVolume(kasVolumeKMSSocket(), buildVolumeKMSSocket))
+		var container *corev1.Container
+		for i, c := range podSpec.Containers {
+			if c.Name == kasContainerMain().Name {
+				container = &podSpec.Containers[i]
+				break
+			}
+		}
+		if container == nil {
+			panic("main kube apiserver container not found in spec")
+		}
+		container.VolumeMounts = append(container.VolumeMounts,
+			kasKMSVolumeMounts.ContainerMounts(kasContainerMain().Name)...)
 	}
 }

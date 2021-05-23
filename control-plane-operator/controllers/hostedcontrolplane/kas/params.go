@@ -25,6 +25,7 @@ type KubeAPIServerImages struct {
 	HyperKube             string `json:"hyperKube"`
 	VPN                   string `json:"vpn"`
 	Portieris             string `json:"portieris"`
+	KMS                   string `json:"kms"`
 }
 
 type KubeAPIServerParams struct {
@@ -55,6 +56,8 @@ type KubeAPIServerParams struct {
 	Resources            config.ResourcesSpec         `json:"resources"`
 	KubeConfigRef        *hyperv1.KubeconfigSecretRef `json:"kubeConfigRef"`
 	OwnerReference       *metav1.OwnerReference       `json:"ownerReference"`
+	KMSKPInfo            string                       `json:"kmsKPInfo"`
+	KMSKPRegion          string                       `json:"kmsKPRegion"`
 
 	Images KubeAPIServerImages `json:"images"`
 }

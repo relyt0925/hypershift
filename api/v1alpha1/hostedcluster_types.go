@@ -145,6 +145,9 @@ const (
 	NamedCertSecretName           = "named-cert-info"
 	PortierisImageAnnotation      = "hypershift.openshift.io/portieris-image"
 	AuditWebhookEnabledAnnotation = "hypershift.openshift.io/audit-webhook-enabled"
+	KMSImageAnnotation            = "hypershift.openshift.io/kms-image"
+	KMSKPInfoAnnotation           = "hypershift.openshift.io/kms-kp-info"
+	KMSKPRegionAnnotation         = "hypershift.openshift.io/kms-kp-region"
 )
 
 type PlatformSpec struct {

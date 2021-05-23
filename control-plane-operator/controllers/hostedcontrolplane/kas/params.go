@@ -248,6 +248,15 @@ func NewKubeAPIServerParams(hcp *hyperv1.HostedControlPlane, images map[string]s
 		if _, ok := hcp.Annotations[hyperv1.AuditWebhookEnabledAnnotation]; ok {
 			params.AuditWebhookEnabled = true
 		}
+		if _, ok := hcp.Annotations[hyperv1.KMSKPRegionAnnotation]; ok {
+			params.KMSKPRegion = hcp.Annotations[hyperv1.KMSKPRegionAnnotation]
+		}
+		if _, ok := hcp.Annotations[hyperv1.KMSKPInfoAnnotation]; ok {
+			params.KMSKPInfo = hcp.Annotations[hyperv1.KMSKPInfoAnnotation]
+		}
+		if _, ok := hcp.Annotations[hyperv1.KMSImageAnnotation]; ok {
+			params.Images.KMS = hcp.Annotations[hyperv1.KMSImageAnnotation]
+		}
 	}
 	params.KubeConfigRef = hcp.Spec.KubeConfig
 	params.OwnerReference = config.ControllerOwnerRef(hcp)

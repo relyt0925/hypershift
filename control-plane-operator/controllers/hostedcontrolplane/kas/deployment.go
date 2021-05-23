@@ -148,7 +148,7 @@ func (p *KubeAPIServerParams) ReconcileKubeAPIServerDeployment(deployment *appsv
 	applyNamedCertificateMounts(p.APIServer.Spec.ServingCerts.NamedCertificates, &deployment.Spec.Template.Spec)
 	p.applyCloudConfigVolumeMount(&deployment.Spec.Template.Spec)
 	p.applyKASAuditWebhookConfigFileVolume(&deployment.Spec.Template.Spec)
-	p.applyKMSVolumeMounts(&deployment.Spec.Template.Spec)
+	p.applyKMSConfig(&deployment.Spec.Template.Spec)
 	return nil
 }
 
@@ -657,8 +657,9 @@ func (p *KubeAPIServerParams) buildKASContainerKMS(c *corev1.Container) {
 	c.VolumeMounts = volumeMounts.ContainerMounts(c.Name)
 }
 
-func (p *KubeAPIServerParams) applyKMSVolumeMounts(podSpec *corev1.PodSpec) {
+func (p *KubeAPIServerParams) applyKMSConfig(podSpec *corev1.PodSpec) {
 	if p.Images.KMS != "" {
+		podSpec.Containers = append(podSpec.Containers, util.BuildContainer(kasContainerKMS(), p.buildKASContainerKMS))
 		podSpec.Volumes = append(podSpec.Volumes, util.BuildVolume(kasVolumeKMSKP(), buildVolumeKMSKP), util.BuildVolume(kasVolumeKMSSocket(), buildVolumeKMSSocket))
 		var container *corev1.Container
 		for i, c := range podSpec.Containers {

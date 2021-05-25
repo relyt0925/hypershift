@@ -3,6 +3,7 @@ package kas
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/render"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

@@ -2,13 +2,12 @@ package kas
 
 import (
 	"fmt"
-	"strconv"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
+	"strconv"
 
 	configv1 "github.com/openshift/api/config/v1"
 	hyperv1 "github.com/openshift/hypershift/api/v1alpha1"
@@ -129,6 +128,17 @@ func NewKubeAPIServerParams(hcp *hyperv1.HostedControlPlane, images map[string]s
 			VPN:                   images["vpn"],
 		},
 	}
+	if hcp.Annotations != nil {
+		if _, ok := hcp.Annotations[hyperv1.EtcdClientOverrideAnnotation]; ok {
+			params.EtcdURL = "https://" + hcp.Annotations[hyperv1.EtcdClientOverrideAnnotation] + ":2379"
+		}
+		if _, ok := hcp.Annotations[hyperv1.SecurePortOverrideAnnotation]; ok {
+			portNumber, err := strconv.ParseInt(hcp.Annotations[hyperv1.SecurePortOverrideAnnotation], 10, 32)
+			if err == nil {
+				params.APIServerPort = int32(portNumber)
+			}
+		}
+	}
 	unprivilegedSecurityContext := corev1.SecurityContext{
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{
@@ -202,17 +212,7 @@ func NewKubeAPIServerParams(hcp *hyperv1.HostedControlPlane, images map[string]s
 	default:
 		params.Replicas = 1
 	}
-	if hcp.Annotations != nil {
-		if _, ok := hcp.Annotations[hyperv1.EtcdClientOverrideAnnotation]; ok {
-			params.EtcdURL = "https://" + hcp.Annotations[hyperv1.EtcdClientOverrideAnnotation] + ":2379"
-		}
-		if _, ok := hcp.Annotations[hyperv1.SecurePortOverrideAnnotation]; ok {
-			portNumber, err := strconv.ParseInt(hcp.Annotations[hyperv1.SecurePortOverrideAnnotation], 10, 32)
-			if err == nil {
-				params.APIServerPort = int32(portNumber)
-			}
-		}
-	}
+
 	params.KubeConfigRef = hcp.Spec.KubeConfig
 	params.OwnerRef = config.OwnerRefFrom(hcp)
 	return params

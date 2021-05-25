@@ -128,8 +128,8 @@ func ReconcileKubeAPIServerDeployment(deployment *appsv1.Deployment,
 			},
 		},
 	}
-	if len(p.Images.Portieris) > 0 {
-		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, util.BuildContainer(kasContainerPortieries(), p.buildKASContainerPortieries))
+	if len(images.Portieris) > 0 {
+		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, util.BuildContainer(kasContainerPortieries(), buildKASContainerPortieries(images.Portieris)))
 		deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, util.BuildVolume(kasVolumePortierisCerts(), buildKASVolumePortierisCerts))
 	}
 	deploymentConfig.ApplyTo(deployment)
@@ -234,25 +234,27 @@ func kasContainerPortieries() *corev1.Container {
 	}
 }
 
-func (p *KubeAPIServerParams) buildKASContainerPortieries(c *corev1.Container) {
-	c.Image = p.Images.Portieris
-	c.ImagePullPolicy = corev1.PullAlways
-	c.Command = []string{
-		"/portieris",
+func buildKASContainerPortieries(image string) func(c *corev1.Container) {
+	return func(c *corev1.Container) {
+		c.Image = image
+		c.ImagePullPolicy = corev1.PullAlways
+		c.Command = []string{
+			"/portieris",
+		}
+		c.Args = []string{
+			"--kubeconfig=/etc/openshift/kubeconfig/kubeconfig",
+			"--alsologtostderr",
+			"-v=4",
+		}
+		c.Ports = []corev1.ContainerPort{
+			{
+				Name:          "http",
+				ContainerPort: 8000,
+				Protocol:      corev1.ProtocolTCP,
+			},
+		}
+		c.VolumeMounts = volumeMounts.ContainerMounts(c.Name)
 	}
-	c.Args = []string{
-		"--kubeconfig=/etc/openshift/kubeconfig/kubeconfig",
-		"--alsologtostderr",
-		"-v=4",
-	}
-	c.Ports = []corev1.ContainerPort{
-		{
-			Name:          "http",
-			ContainerPort: 8000,
-			Protocol:      corev1.ProtocolTCP,
-		},
-	}
-	c.VolumeMounts = volumeMounts.ContainerMounts(c.Name)
 }
 
 func kasVolumeBootstrapManifests() *corev1.Volume {

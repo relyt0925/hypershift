@@ -156,7 +156,9 @@ func ReconcileKubeAPIServerDeployment(deployment *appsv1.Deployment,
 	deploymentConfig.ApplyTo(deployment)
 	applyNamedCertificateMounts(namedCertificates, &deployment.Spec.Template.Spec)
 	applyCloudConfigVolumeMount(cloudProviderConfigRef, &deployment.Spec.Template.Spec)
-	applyKASAuditWebhookConfigFileVolume(&deployment.Spec.Template.Spec)
+	if deploymentConfig.AuditWebhookEnabled {
+		applyKASAuditWebhookConfigFileVolume(&deployment.Spec.Template.Spec)
+	}
 	return nil
 }
 

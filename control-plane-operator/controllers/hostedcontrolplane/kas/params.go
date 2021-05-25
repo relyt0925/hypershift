@@ -39,7 +39,6 @@ type KubeAPIServerParams struct {
 	CloudProvider       string                       `json:"cloudProvider"`
 	CloudProviderConfig *corev1.LocalObjectReference `json:"cloudProviderConfig"`
 
-	AuditWebhookEnabled  bool                         `json:"auditWebhookEnabled"`
 	AdvertiseAddress     string                       `json:"advertiseAddress"`
 	ExternalAddress      string                       `json:"externalAddress"`
 	ExternalPort         int32                        `json:"externalPort"`

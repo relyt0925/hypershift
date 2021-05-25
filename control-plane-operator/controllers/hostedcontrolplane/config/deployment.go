@@ -6,15 +6,16 @@ import (
 )
 
 type DeploymentConfig struct {
-	Replicas         int                 `json:"replicas"`
-	Scheduling       Scheduling          `json:"scheduling"`
-	AdditionalLabels AdditionalLabels    `json:"additionalLabels"`
-	SecurityContexts SecurityContextSpec `json:"securityContexts"`
-	LivenessProbes   LivenessProbes      `json:"livenessProbes"`
-	ReadinessProbes  ReadinessProbes     `json:"readinessProbes"`
-	Resources        ResourcesSpec       `json:"resources"`
-	KMSKPInfo        string              `json:"kmsKPInfo"`
-	KMSKPRegion      string              `json:"kmsKPRegion"`
+	Replicas            int                 `json:"replicas"`
+	Scheduling          Scheduling          `json:"scheduling"`
+	AdditionalLabels    AdditionalLabels    `json:"additionalLabels"`
+	SecurityContexts    SecurityContextSpec `json:"securityContexts"`
+	LivenessProbes      LivenessProbes      `json:"livenessProbes"`
+	ReadinessProbes     ReadinessProbes     `json:"readinessProbes"`
+	Resources           ResourcesSpec       `json:"resources"`
+	AuditWebhookEnabled bool                `json:"auditWebhookEnabled"`
+	KMSKPInfo           string              `json:"kmsKPInfo"`
+	KMSKPRegion         string              `json:"kmsKPRegion"`
 }
 
 func (c *DeploymentConfig) ApplyTo(deployment *appsv1.Deployment) {

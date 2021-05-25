@@ -698,7 +698,7 @@ func applyKMSConfig(podSpec *corev1.PodSpec) {
 			break
 		}
 	}
-	container.Args = append(container.Args, fmt.Sprintf("--encryption-provider-config=%s/config.yaml", kasKMSVolumeMounts[kasVolumeKMSConfigFile().Name]))
+	container.Args = append(container.Args, fmt.Sprintf("--encryption-provider-config=%s/config.yaml", kasKMSVolumeMounts.Path(kasContainerMain().Name, kasVolumeKMSConfigFile().Name)))
 	if container == nil {
 		panic("main kube apiserver container not found in spec")
 	}

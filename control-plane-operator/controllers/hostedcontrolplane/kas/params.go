@@ -298,6 +298,7 @@ func (p *KubeAPIServerParams) ConfigParams() KubeAPIServerConfigParams {
 		EtcdURL:                      p.EtcdURL,
 		FeatureGates:                 p.FeatureGates(),
 		NodePortRange:                p.ServiceNodePortRange(),
+		AuditWebhookEnabled:          p.AuditWebhookEnabled,
 	}
 }
 
@@ -319,6 +320,7 @@ type KubeAPIServerConfigParams struct {
 	EtcdURL                      string
 	FeatureGates                 []string
 	NodePortRange                string
+	AuditWebhookEnabled          bool
 }
 
 func (p *KubeAPIServerParams) TLSSecurityProfile() *configv1.TLSSecurityProfile {

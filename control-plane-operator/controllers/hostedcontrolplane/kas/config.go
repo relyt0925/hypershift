@@ -114,7 +114,7 @@ func generateConfig(ns string, p KubeAPIServerConfigParams) *kcpv1.KubeAPIServer
 		args.Set("cloud-provider", p.CloudProvider)
 	}
 	if p.AuditWebhookEnabled {
-		args.Set("audit-webhook-config-file", p.auditWebhookConfigFile())
+		args.Set("audit-webhook-config-file", auditWebhookConfigFile())
 	}
 	args.Set("enable-admission-plugins", admissionPlugins()...)
 	args.Set("enable-aggregator-routing", "true")
@@ -171,12 +171,9 @@ func cloudProviderConfig(cloudProviderConfigName, cloudProvider string) string {
 	return ""
 }
 
-func (p *KubeAPIServerParams) auditWebhookConfigFile() string {
-	if p.AuditWebhookEnabled {
-		cfgDir := kasAuditWebhookConfigFileVolumeMount.Path(kasContainerMain().Name, kasAuditWebhookConfigFileVolume().Name)
-		return path.Join(cfgDir, "webhook-kubeconfig")
-	}
-	return ""
+func auditWebhookConfigFile() string {
+	cfgDir := kasAuditWebhookConfigFileVolumeMount.Path(kasContainerMain().Name, kasAuditWebhookConfigFileVolume().Name)
+	return path.Join(cfgDir, "webhook-kubeconfig")
 }
 
 func externalIPRangerConfig(externalIPConfig *configv1.ExternalIPConfig) runtime.Object {

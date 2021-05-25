@@ -220,3 +220,12 @@ func KASKMSConfigFile(ns string) *corev1.ConfigMap {
 		},
 	}
 }
+
+func KASKMSWDEKSecret(ns string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kp-wdek-secret",
+			Namespace: ns,
+		},
+	}
+}

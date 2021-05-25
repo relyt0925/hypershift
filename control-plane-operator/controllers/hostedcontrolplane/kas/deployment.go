@@ -607,7 +607,7 @@ func kasVolumeKMSKP() *corev1.Volume {
 
 func buildVolumeKMSKP(v *corev1.Volume) {
 	v.Secret = &corev1.SecretVolumeSource{}
-	v.Secret.SecretName = "kp-wdek-secret"
+	v.Secret.SecretName = manifests.KASKMSWDEKSecret("").Name
 	optionalMount := true
 	v.Secret.Optional = &optionalMount
 }

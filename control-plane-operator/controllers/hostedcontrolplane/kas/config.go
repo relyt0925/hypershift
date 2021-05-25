@@ -115,6 +115,7 @@ func generateConfig(ns string, p KubeAPIServerConfigParams) *kcpv1.KubeAPIServer
 	}
 	if p.AuditWebhookEnabled {
 		args.Set("audit-webhook-config-file", auditWebhookConfigFile())
+		args.Set("audit-webhook-mode", "batch")
 	}
 	args.Set("enable-admission-plugins", admissionPlugins()...)
 	args.Set("enable-aggregator-routing", "true")

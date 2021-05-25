@@ -73,7 +73,8 @@ var (
 
 	kasKMSVolumeMounts = util.PodVolumeMounts{
 		kasContainerMain().Name: {
-			kasVolumeKMSSocket().Name: "/tmp",
+			kasVolumeKMSSocket().Name:     "/tmp",
+			kasVolumeKMSConfigFile().Name: "/etc/kubernetes/kms-config",
 		},
 	}
 
@@ -619,7 +620,7 @@ func kasVolumeKMSConfigFile() *corev1.Volume {
 
 func buildVolumeKMSConfigFile(v *corev1.Volume) {
 	v.ConfigMap = &corev1.ConfigMapVolumeSource{}
-	v.ConfigMap.Name = manifests.KASAuditWebhookConfigFileVolume("").Name
+	v.ConfigMap.Name = manifests.KASKMSConfigFile("").Name
 
 }
 
@@ -689,7 +690,7 @@ func buildKASContainerKMS(image string, region string, kmsInfo string) func(c *c
 }
 
 func applyKMSConfig(podSpec *corev1.PodSpec) {
-	podSpec.Volumes = append(podSpec.Volumes, util.BuildVolume(kasVolumeKMSKP(), buildVolumeKMSKP), util.BuildVolume(kasVolumeKMSSocket(), buildVolumeKMSSocket))
+	podSpec.Volumes = append(podSpec.Volumes, util.BuildVolume(kasVolumeKMSKP(), buildVolumeKMSKP), util.BuildVolume(kasVolumeKMSSocket(), buildVolumeKMSSocket), util.BuildVolume(kasVolumeKMSConfigFile(), buildVolumeKMSConfigFile))
 	var container *corev1.Container
 	for i, c := range podSpec.Containers {
 		if c.Name == kasContainerMain().Name {
@@ -697,7 +698,7 @@ func applyKMSConfig(podSpec *corev1.PodSpec) {
 			break
 		}
 	}
-	container.Args = append(container.Args, "--encryption-provider-config=/etc/kubernetes/kms-config/config.yaml")
+	container.Args = append(container.Args, fmt.Sprintf("--encryption-provider-config=%s/config.yaml", kasKMSVolumeMounts[kasVolumeKMSConfigFile().Name]))
 	if container == nil {
 		panic("main kube apiserver container not found in spec")
 	}

@@ -45,6 +45,7 @@ type KubeAPIServerParams struct {
 	EtcdURL              string                       `json:"etcdAddress"`
 	APIServerPort        int32                        `json:"apiServerPort"`
 	KubeConfigRef        *hyperv1.KubeconfigSecretRef `json:"kubeConfigRef"`
+	AuditWebhookEnabled  bool                         `json:"auditWebhookEnabled"`
 	config.DeploymentConfig
 	config.OwnerRef
 
@@ -158,9 +159,14 @@ func NewKubeAPIServerParams(hcp *hyperv1.HostedControlPlane, images map[string]s
 		if _, ok := hcp.Annotations[hyperv1.PortierisImageAnnotation]; ok {
 			params.Images.Portieris = hcp.Annotations[hyperv1.PortierisImageAnnotation]
 		}
-		if _, ok := hcp.Annotations[hyperv1.AuditWebhookEnabledAnnotation]; ok {
+
+	}
+	switch hcp.Spec.Platform.Type {
+	case hyperv1.IBMCloudPlatform:
+		if hcp.Spec.Platform.IBMCloud != nil && hcp.Spec.Platform.IBMCloud.AuditWebhook != nil && hcp.Spec.Platform.IBMCloud.AuditWebhook.Enable {
 			params.AuditWebhookEnabled = true
 		}
+
 	}
 	unprivilegedSecurityContext := corev1.SecurityContext{
 		Capabilities: &corev1.Capabilities{

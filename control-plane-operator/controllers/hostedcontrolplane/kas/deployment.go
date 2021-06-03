@@ -84,7 +84,8 @@ func ReconcileKubeAPIServerDeployment(deployment *appsv1.Deployment,
 	deploymentConfig config.DeploymentConfig,
 	namedCertificates []configv1.APIServerNamedServingCert,
 	cloudProviderConfigRef *corev1.LocalObjectReference,
-	images KubeAPIServerImages) error {
+	images KubeAPIServerImages,
+	auditWebhookEnabled bool) error {
 
 	ownerRef.ApplyTo(deployment)
 	maxSurge := intstr.FromInt(3)
@@ -141,7 +142,7 @@ func ReconcileKubeAPIServerDeployment(deployment *appsv1.Deployment,
 	deploymentConfig.ApplyTo(deployment)
 	applyNamedCertificateMounts(namedCertificates, &deployment.Spec.Template.Spec)
 	applyCloudConfigVolumeMount(cloudProviderConfigRef, &deployment.Spec.Template.Spec)
-	if deploymentConfig.AuditWebhookEnabled {
+	if auditWebhookEnabled {
 		applyKASAuditWebhookConfigFileVolume(&deployment.Spec.Template.Spec)
 	}
 	return nil

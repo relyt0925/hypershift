@@ -56,6 +56,13 @@ spec:
           spec:
             description: HostedClusterSpec defines the desired state of HostedCluster
             properties:
+              auditWebhook:
+                description: AuditWebhook contains metadata for configuring an audit webhook endpoint for a cluster to process cluster audit events
+                properties:
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                    type: string
+                type: object
               autoscaling:
                 description: Autoscaling for compute nodes only, does not cover control plane
                 properties:
@@ -215,17 +222,6 @@ spec:
                     - nodePoolManagementCreds
                     - region
                     type: object
-                  ibmcloud:
-                    description: IBMCloud contains IBMCloud-specific settings for the HostedCluster
-                    properties:
-                      auditWebhook:
-                        description: AuditWebhook contains metadata for configuring an audit webhook endpoint for a cluster
-                        properties:
-                          enable:
-                            description: Enable enables the audit webhook
-                            type: boolean
-                        type: object
-                    type: object
                   type:
                     description: Type is the underlying infrastructure provider for the cluster.
                     enum:
@@ -313,6 +309,7 @@ spec:
                     type: string
                 type: object
             required:
+            - auditWebhook
             - issuerURL
             - networking
             - platform

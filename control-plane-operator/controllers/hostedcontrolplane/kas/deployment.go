@@ -505,8 +505,8 @@ func kasAuditWebhookConfigFileVolume() *corev1.Volume {
 }
 
 func buildKASAuditWebhookConfigFileVolume(v *corev1.Volume) {
-	v.ConfigMap = &corev1.ConfigMapVolumeSource{}
-	v.ConfigMap.Name = manifests.KASAuditWebhookConfigFile("").Name
+	v.Secret = &corev1.SecretVolumeSource{}
+	v.Secret.SecretName = manifests.KASAuditWebhookConfigFile("").Name
 }
 
 func applyKASAuditWebhookConfigFileVolume(podSpec *corev1.PodSpec) {

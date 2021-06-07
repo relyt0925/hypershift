@@ -18,10 +18,11 @@ import (
 )
 
 const (
-	KubeAPIServerConfigKey = "config.json"
-	OauthMetadataConfigKey = "oauthMetadata.json"
-	AuditLogFile           = "audit.log"
-	DefaultEtcdPort        = 2379
+	KubeAPIServerConfigKey    = "config.json"
+	OauthMetadataConfigKey    = "oauthMetadata.json"
+	AuditLogFile              = "audit.log"
+	DefaultEtcdPort           = 2379
+	AuditWebhookKubeconfigKey = "webhook-kubeconfig"
 )
 
 func ReconcileConfig(config *corev1.ConfigMap,
@@ -320,5 +321,5 @@ func jwksURL(issuerURL string) string {
 
 func auditWebhookConfigFile() string {
 	cfgDir := kasAuditWebhookConfigFileVolumeMount.Path(kasContainerMain().Name, kasAuditWebhookConfigFileVolume().Name)
-	return path.Join(cfgDir, "webhook-kubeconfig")
+	return path.Join(cfgDir, AuditWebhookKubeconfigKey)
 }

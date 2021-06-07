@@ -21,6 +21,10 @@ type HostedClusterSpec struct {
 	// workers. It should have an ".dockerconfigjson" key containing the pull secret JSON.
 	PullSecret corev1.LocalObjectReference `json:"pullSecret"`
 
+	// AuditWebhook contains metadata for configuring an audit webhook
+	// endpoint for a cluster to process cluster audit events
+	AuditWebhook corev1.LocalObjectReference `json:"auditWebhook"`
+
 	// SigningKey is a reference to a Secret containing a single key "key"
 	// +optional
 	SigningKey corev1.LocalObjectReference `json:"signingKey,omitempty"`
@@ -152,23 +156,6 @@ type PlatformSpec struct {
 	// AWS contains AWS-specific settings for the HostedCluster
 	// +optional
 	AWS *AWSPlatformSpec `json:"aws,omitempty"`
-
-	// IBMCloud contains IBMCloud-specific settings for the HostedCluster
-	// +optional
-	IBMCloud *IBMCloudPlatformSpec `json:"ibmcloud,omitempty"`
-}
-
-type IBMCloudPlatformSpec struct {
-	// AuditWebhook contains metadata for configuring an audit webhook
-	// endpoint for a cluster
-	// +optional
-	AuditWebhook *AuditWebhook `json:"auditWebhook,omitempty"`
-}
-
-type AuditWebhook struct {
-	// Enable enables the audit webhook
-	// +optional
-	Enable bool `json:"enable,omitempty"`
 }
 
 type AWSCloudProviderConfig struct {

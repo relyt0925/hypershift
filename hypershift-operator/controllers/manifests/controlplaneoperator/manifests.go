@@ -116,3 +116,12 @@ func SSHKey(controlPlaneNamespace string) *corev1.Secret {
 		},
 	}
 }
+
+func AuditWebhookSecret(namespace string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      "pull-secret",
+		},
+	}
+}

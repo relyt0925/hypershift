@@ -23,6 +23,7 @@ type HostedClusterSpec struct {
 
 	// AuditWebhook contains metadata for configuring an audit webhook
 	// endpoint for a cluster to process cluster audit events
+	// +optional
 	AuditWebhook corev1.LocalObjectReference `json:"auditWebhook,omitempty"`
 
 	// SigningKey is a reference to a Secret containing a single key "key"

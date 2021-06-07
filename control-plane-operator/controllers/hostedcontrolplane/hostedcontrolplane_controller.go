@@ -1030,7 +1030,6 @@ func (r *HostedControlPlaneReconciler) reconcileEtcd(ctx context.Context, hcp *h
 	// Etcd operator role
 	operatorRole := manifests.EtcdOperatorRole(hcp.Namespace)
 	if _, err := controllerutil.CreateOrUpdate(ctx, r, operatorRole, func() error {
-		operatorRole.OwnerReferences = ensureHCPOwnerRef(hcp, operatorRole.OwnerReferences)
 		return etcd.ReconcileOperatorRole(operatorRole, p.OwnerRef)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile etcd operator role: %w", err)
@@ -1039,7 +1038,6 @@ func (r *HostedControlPlaneReconciler) reconcileEtcd(ctx context.Context, hcp *h
 	// Etcd operator rolebinding
 	operatorRoleBinding := manifests.EtcdOperatorRoleBinding(hcp.Namespace)
 	if _, err := controllerutil.CreateOrUpdate(ctx, r, operatorRoleBinding, func() error {
-		operatorRoleBinding.OwnerReferences = ensureHCPOwnerRef(hcp, operatorRoleBinding.OwnerReferences)
 		return etcd.ReconcileOperatorRoleBinding(operatorRoleBinding, p.OwnerRef)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile etcd operator role binding: %w", err)
@@ -1048,7 +1046,6 @@ func (r *HostedControlPlaneReconciler) reconcileEtcd(ctx context.Context, hcp *h
 	// Etcd operator deployment
 	operatorDeployment := manifests.EtcdOperatorDeployment(hcp.Namespace)
 	if _, err := controllerutil.CreateOrUpdate(ctx, r, operatorDeployment, func() error {
-		operatorDeployment.OwnerReferences = ensureHCPOwnerRef(hcp, operatorDeployment.OwnerReferences)
 		return etcd.ReconcileOperatorDeployment(operatorDeployment, p.OwnerRef, p.OperatorDeploymentConfig, p.EtcdOperatorImage)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile etcd operator deployment: %w", err)
@@ -1063,7 +1060,6 @@ func (r *HostedControlPlaneReconciler) reconcileEtcd(ctx context.Context, hcp *h
 		}
 	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, r, etcdCluster, func() error {
-		etcdCluster.OwnerReferences = ensureHCPOwnerRef(hcp, etcdCluster.OwnerReferences)
 		return etcd.ReconcileCluster(etcdCluster, p.OwnerRef, p.EtcdDeploymentConfig, p.ClusterVersion, p.PVCClaim)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile etcd cluster: %w", err)
@@ -1081,46 +1077,47 @@ func (r *HostedControlPlaneReconciler) reconcileVPN(ctx context.Context, hcp *hy
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile vpn service account: %w", err)
 	}
-if hcp.Annotations != nil {
-if _, ok := hcp.Annotations[hyperv1.EtcdClientOverrideAnnotation]; !ok {
+	if hcp.Annotations != nil {
+		if _, ok := hcp.Annotations[hyperv1.EtcdClientOverrideAnnotation]; !ok {
 
-	serverConfig := manifests.VPNServerConfig(hcp.Namespace)
-	if _, err := controllerutil.CreateOrUpdate(ctx, r, serverConfig, func() error {
-		return vpn.ReconcileVPNServerConfig(serverConfig, p.OwnerRef, config.ClusterCIDR(&p.Network), config.ServiceCIDR(&p.Network), p.MachineCIDR)
-	}); err != nil {
-		return fmt.Errorf("failed to reconcile vpn server config: %w", err)
+			serverConfig := manifests.VPNServerConfig(hcp.Namespace)
+			if _, err := controllerutil.CreateOrUpdate(ctx, r, serverConfig, func() error {
+				return vpn.ReconcileVPNServerConfig(serverConfig, p.OwnerRef, config.ClusterCIDR(&p.Network), config.ServiceCIDR(&p.Network), p.MachineCIDR)
+			}); err != nil {
+				return fmt.Errorf("failed to reconcile vpn server config: %w", err)
+			}
+			serverClientConfig := manifests.VPNServerClientConfig(hcp.Namespace)
+			if _, err := controllerutil.CreateOrUpdate(ctx, r, serverClientConfig, func() error {
+				return vpn.ReconcileVPNServerClientConfig(serverClientConfig, p.OwnerRef, config.ClusterCIDR(&p.Network), config.ServiceCIDR(&p.Network), p.MachineCIDR)
+			}); err != nil {
+				return fmt.Errorf("failed to reconcile vpn server client config: %w", err)
+			}
+			kubeAPIServerConfig := manifests.VPNKubeAPIServerClientConfig(hcp.Namespace)
+			if _, err := controllerutil.CreateOrUpdate(ctx, r, kubeAPIServerConfig, func() error {
+				return vpn.ReconcileKubeAPIServerClientConfig(kubeAPIServerConfig, p.OwnerRef)
+			}); err != nil {
+				return fmt.Errorf("failed to reconcile vpn kas client config: %w", err)
+			}
+			clientConfig := manifests.VPNWorkerClientConfig(hcp.Namespace)
+			if _, err := controllerutil.CreateOrUpdate(ctx, r, clientConfig, func() error {
+				return vpn.ReconcileWorkerClientConfig(clientConfig, p.OwnerRef, p.ExternalAddress, p.ExternalPort)
+			}); err != nil {
+				return fmt.Errorf("failed to reconcile vpn worker client config: %w", err)
+			}
+			serverDeployment := manifests.VPNServerDeployment(hcp.Namespace)
+			if _, err := controllerutil.CreateOrUpdate(ctx, r, serverDeployment, func() error {
+				return vpn.ReconcileServerDeployment(serverDeployment, p.OwnerRef, p.ServerDeploymentConfig, p.VPNImage)
+			}); err != nil {
+				return fmt.Errorf("failed to reconcile vpn server deployment: %w", err)
+			}
+			clientDeployment := manifests.VPNWorkerClientDeployment(hcp.Namespace)
+			if _, err := controllerutil.CreateOrUpdate(ctx, r, clientDeployment, func() error {
+				return vpn.ReconcileWorkerClientDeployment(clientDeployment, p.OwnerRef, p.WorkerClientDeploymentConfig, p.VPNImage)
+			}); err != nil {
+				return fmt.Errorf("failed to reconcile vpn client deployment: %w", err)
+			}
+		}
 	}
-	serverClientConfig := manifests.VPNServerClientConfig(hcp.Namespace)
-	if _, err := controllerutil.CreateOrUpdate(ctx, r, serverClientConfig, func() error {
-		return vpn.ReconcileVPNServerClientConfig(serverClientConfig, p.OwnerRef, config.ClusterCIDR(&p.Network), config.ServiceCIDR(&p.Network), p.MachineCIDR)
-	}); err != nil {
-		return fmt.Errorf("failed to reconcile vpn server client config: %w", err)
-	}
-	kubeAPIServerConfig := manifests.VPNKubeAPIServerClientConfig(hcp.Namespace)
-	if _, err := controllerutil.CreateOrUpdate(ctx, r, kubeAPIServerConfig, func() error {
-		return vpn.ReconcileKubeAPIServerClientConfig(kubeAPIServerConfig, p.OwnerRef)
-	}); err != nil {
-		return fmt.Errorf("failed to reconcile vpn kas client config: %w", err)
-	}
-	clientConfig := manifests.VPNWorkerClientConfig(hcp.Namespace)
-	if _, err := controllerutil.CreateOrUpdate(ctx, r, clientConfig, func() error {
-		return vpn.ReconcileWorkerClientConfig(clientConfig, p.OwnerRef, p.ExternalAddress, p.ExternalPort)
-	}); err != nil {
-		return fmt.Errorf("failed to reconcile vpn worker client config: %w", err)
-	}
-	serverDeployment := manifests.VPNServerDeployment(hcp.Namespace)
-	if _, err := controllerutil.CreateOrUpdate(ctx, r, serverDeployment, func() error {
-		return vpn.ReconcileServerDeployment(serverDeployment, p.OwnerRef, p.ServerDeploymentConfig, p.VPNImage)
-	}); err != nil {
-		return fmt.Errorf("failed to reconcile vpn server deployment: %w", err)
-	}
-	clientDeployment := manifests.VPNWorkerClientDeployment(hcp.Namespace)
-	if _, err := controllerutil.CreateOrUpdate(ctx, r, clientDeployment, func() error {
-		return vpn.ReconcileWorkerClientDeployment(clientDeployment, p.OwnerRef, p.WorkerClientDeploymentConfig, p.VPNImage)
-	}); err != nil {
-		return fmt.Errorf("failed to reconcile vpn client deployment: %w", err)
-	}
-}
 	return nil
 }
 

@@ -177,12 +177,17 @@ func hyperShiftOperatorManifests(opts Options) []crclient.Object {
 }
 
 func clusterAPIManifests() []crclient.Object {
-	clustersCRD := assets.ClusterAPIClustersCustomResourceDefinition{}.Build()
+	clusterResourceSetBindingsCRD := assets.ClusterAPIClusterResourceSetBindingsCustomResourceDefinition{}.Build()
+	clustersCRD := assets.ClusterAPIClusterResourceSetsCustomResourceDefinition{}.Build()
+	clusterResourceSetsCRD := assets.ClusterAPIClustersCustomResourceDefinition{}.Build()
 	machineDeploymentsCRD := assets.ClusterAPIMachineDeploymentsCustomResourceDefinition{}.Build()
 	machineHealthChecksCRD := assets.ClusterAPIMachineHealthChecksCustomResourceDefinition{}.Build()
 	machinesCRD := assets.ClusterAPIMachinesCustomResourceDefinition{}.Build()
 	machineSetsCRD := assets.ClusterAPIMachineSetsCustomResourceDefinition{}.Build()
+	awsClusterControllerIdentitiesCRD := assets.ClusterAPIAWSClusterControllerIdentitiesCustomResourceDefinition{}.Build()
+	awsClusterRoleIdentitiesCRD := assets.ClusterAPIAWSClusterRoleIdentitiesCustomResourceDefinition{}.Build()
 	awsClustersCRD := assets.ClusterAPIAWSClustersCustomResourceDefinition{}.Build()
+	awsClusterStaticIdentitiesCRD := assets.ClusterAPIAWSClusterStaticIdentitiesCustomResourceDefinition{}.Build()
 	awsMachinePoolsCRD := assets.ClusterAPIAWSMachinePoolsCustomResourceDefinition{}.Build()
 	awsMachinesCRD := assets.ClusterAPIAWSMachinesCustomResourceDefinition{}.Build()
 	awsMachineTemplatesCRD := assets.ClusterAPIAWSMachineTemplatesCustomResourceDefinition{}.Build()
@@ -190,6 +195,8 @@ func clusterAPIManifests() []crclient.Object {
 	awsManagedMachinePoolsCRD := assets.ClusterAPIAWSManagedMachinePoolsCustomResourceDefinition{}.Build()
 
 	return []crclient.Object{
+		clusterResourceSetBindingsCRD,
+		clusterResourceSetsCRD,
 		clustersCRD,
 		machineDeploymentsCRD,
 		machineHealthChecksCRD,
@@ -201,6 +208,9 @@ func clusterAPIManifests() []crclient.Object {
 		awsMachineTemplatesCRD,
 		awsManagedClustersCRD,
 		awsManagedMachinePoolsCRD,
+		awsClusterControllerIdentitiesCRD,
+		awsClusterRoleIdentitiesCRD,
+		awsClusterStaticIdentitiesCRD,
 	}
 }
 

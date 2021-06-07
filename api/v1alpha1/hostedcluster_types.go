@@ -21,6 +21,11 @@ type HostedClusterSpec struct {
 	// workers. It should have an ".dockerconfigjson" key containing the pull secret JSON.
 	PullSecret corev1.LocalObjectReference `json:"pullSecret"`
 
+	// AuditWebhook contains metadata for configuring an audit webhook
+	// endpoint for a cluster to process cluster audit events
+	// +optional
+	AuditWebhook corev1.LocalObjectReference `json:"auditWebhook,omitempty"`
+
 	// SigningKey is a reference to a Secret containing a single key "key"
 	// +optional
 	SigningKey corev1.LocalObjectReference `json:"signingKey,omitempty"`
@@ -50,6 +55,7 @@ type HostedClusterSpec struct {
 
 	// Services defines metadata about how control plane services are published
 	// in the management cluster.
+	// TODO (alberto): include Ignition endpoint here.
 	Services []ServicePublishingStrategyMapping `json:"services"`
 
 	// ControllerAvailabilityPolicy specifies whether to run control plane controllers in HA mode
@@ -163,16 +169,30 @@ type PlatformSpec struct {
 	AWS *AWSPlatformSpec `json:"aws,omitempty"`
 }
 
-type AWSPlatformSpec struct {
-	// Region is the AWS region for the cluster
-	Region string `json:"region"`
+type AWSCloudProviderConfig struct {
+	// Subnet is the subnet to use for instances
+	// +optional
+	Subnet *AWSResourceReference `json:"subnet,omitempty"`
+
+	// Zone is the availability zone where the instances are created
+	// +optional
+	Zone string `json:"zone,omitempty"`
 
 	// VPC specifies the VPC used for the cluster
 	VPC string `json:"vpc"`
+}
 
-	// NodePoolDefaults specifies the default platform
+type AWSPlatformSpec struct {
+	// Region is the AWS region for the cluster.
+	// This is used by CRs that are consumed by OCP Operators.
+	// E.g cluster-infrastructure-02-config.yaml and install-config.yaml
+	// This is also used by nodePools to fetch the default boot AMI in a given payload.
+	Region string `json:"region"`
+
+	// CloudProviderConfig is used to generate the ConfigMap with the cloud config consumed
+	// by the Control Plane components.
 	// +optional
-	NodePoolDefaults *AWSNodePoolPlatform `json:"nodePoolDefaults,omitempty"`
+	CloudProviderConfig *AWSCloudProviderConfig `json:"cloudProviderConfig,omitempty"`
 
 	// ServiceEndpoints list contains custom endpoints which will override default
 	// service endpoint of AWS Services.
@@ -258,6 +278,11 @@ type HostedClusterStatus struct {
 	// for the cluster.
 	// +optional
 	KubeConfig *corev1.LocalObjectReference `json:"kubeconfig,omitempty"`
+
+	// IgnitionEndpoint is the endpoint injected in the ign config userdata.
+	// It exposes the config for instances to become kubernetes nodes.
+	// +optional
+	IgnitionEndpoint string `json:"ignitionEndpoint"`
 
 	Conditions []metav1.Condition `json:"conditions"`
 }

@@ -22,7 +22,7 @@ import (
 	"crypto/x509/pkix"
 	"fmt"
 	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/kas"
-	manifests2 "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/manifests"
+	kasmanifests "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/manifests"
 	"strings"
 	"time"
 
@@ -308,7 +308,7 @@ func (r *HostedClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			if !ok {
 				return ctrl.Result{}, fmt.Errorf("audit webhook secret does not contain key %s", kas.AuditWebhookKubeconfigKey)
 			}
-			hostedControlPlaneAuditWebhookSecret := manifests2.KASAuditWebhookConfigFile(controlPlaneNamespace.Name)
+			hostedControlPlaneAuditWebhookSecret := kasmanifests.KASAuditWebhookConfigFile(controlPlaneNamespace.Name)
 			_, err = controllerutil.CreateOrUpdate(ctx, r.Client, hostedControlPlaneAuditWebhookSecret, func() error {
 				return reconcileAuditWebhook(hostedControlPlaneAuditWebhookSecret, configData)
 			})
@@ -495,7 +495,7 @@ func reconcileHostedControlPlane(hcp *hyperv1.HostedControlPlane, hcluster *hype
 		hcp.Spec.SSHKey = corev1.LocalObjectReference{Name: controlplaneoperator.SSHKey(hcp.Namespace).Name}
 	}
 	if len(hcluster.Spec.AuditWebhook.Name) > 0 {
-		hcp.Spec.AuditWebhook.Name = manifests2.KASAuditWebhookConfigFile("").Name
+		hcp.Spec.AuditWebhook.Name = kasmanifests.KASAuditWebhookConfigFile("").Name
 	}
 	hcp.Spec.IssuerURL = hcluster.Spec.IssuerURL
 	hcp.Spec.ServiceCIDR = hcluster.Spec.Networking.ServiceCIDR

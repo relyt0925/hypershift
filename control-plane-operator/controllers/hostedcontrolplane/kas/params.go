@@ -195,6 +195,9 @@ func NewKubeAPIServerParams(hcp *hyperv1.HostedControlPlane, images map[string]s
 		params.CloudProvider = aws.Provider
 		params.CloudProviderConfig = &corev1.LocalObjectReference{Name: manifests.AWSProviderConfig("").Name}
 	}
+	if len(hcp.Spec.AuditWebhook.Name) > 0 {
+		params.AuditWebhookEnabled = true
+	}
 
 	switch hcp.Spec.ControllerAvailabilityPolicy {
 	case hyperv1.HighlyAvailable:

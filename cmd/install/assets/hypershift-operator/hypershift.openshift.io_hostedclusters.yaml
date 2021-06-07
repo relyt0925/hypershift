@@ -309,7 +309,6 @@ spec:
                     type: string
                 type: object
             required:
-            - auditWebhook
             - issuerURL
             - networking
             - platform

@@ -1763,6 +1763,9 @@ func enqueueParentHostedCluster(obj ctrlclient.Object) []reconcile.Request {
 }
 
 func reconcileAuditWebhook(secret *corev1.Secret, configFileData []byte) error {
+	if secret.Data == nil {
+		secret.Data = map[string][]byte{}
+	}
 	secret.Data[kas.AuditWebhookKubeconfigKey] = configFileData
 	secret.Type = corev1.SecretTypeOpaque
 	return nil

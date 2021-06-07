@@ -212,8 +212,8 @@ func OLMPackageServerCertSecret(ns string) *corev1.Secret {
 	}
 }
 
-func KASAuditWebhookConfigFile(ns string) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
+func KASAuditWebhookConfigFile(ns string) *corev1.Secret {
+	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "apiserver-audit-cm",
 			Namespace: ns,

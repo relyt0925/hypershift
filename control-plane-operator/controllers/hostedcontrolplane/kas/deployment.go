@@ -500,7 +500,7 @@ func applyNamedCertificateMounts(certs []configv1.APIServerNamedServingCert, spe
 
 func kasAuditWebhookConfigFileVolume() *corev1.Volume {
 	return &corev1.Volume{
-		Name: "apiserver-audit-cm",
+		Name: "apiserver-audit-webhook",
 	}
 }
 

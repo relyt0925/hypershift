@@ -21,9 +21,11 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
+	"github.com/openshift/hypershift/api"
 	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/kas"
 	kasmanifests "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/manifests"
 	"github.com/openshift/hypershift/thirdparty/clusterapiprovideribmcloud/v1alpha4"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"strings"
 	"time"
 
@@ -1139,6 +1141,10 @@ func reconcileCAPICluster(cluster *capiv1.Cluster, hcluster *hyperv1.HostedClust
 	cluster.Annotations = map[string]string{
 		hostedClusterAnnotation: ctrlclient.ObjectKeyFromObject(hcluster).String(),
 	}
+	gvk, err := apiutil.GVKForObject(infraCR, api.Scheme)
+	if err != nil {
+		return err
+	}
 	cluster.Spec = capiv1.ClusterSpec{
 		ControlPlaneEndpoint: capiv1.APIEndpoint{},
 		ControlPlaneRef: &corev1.ObjectReference{
@@ -1148,8 +1154,8 @@ func reconcileCAPICluster(cluster *capiv1.Cluster, hcluster *hyperv1.HostedClust
 			Name:       hcp.Name,
 		},
 		InfrastructureRef: &corev1.ObjectReference{
-			APIVersion: infraCR.GetObjectKind().GroupVersionKind().GroupVersion().String(),
-			Kind:       infraCR.GetObjectKind().GroupVersionKind().Kind,
+			APIVersion: gvk.GroupVersion().String(),
+			Kind:       gvk.Kind,
 			Namespace:  infraCR.GetNamespace(),
 			Name:       infraCR.GetName(),
 		},

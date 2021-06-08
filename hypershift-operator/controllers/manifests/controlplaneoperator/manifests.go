@@ -2,6 +2,7 @@ package controlplaneoperator
 
 import (
 	capiawsv1 "github.com/openshift/hypershift/thirdparty/clusterapiprovideraws/v1alpha4"
+	"github.com/openshift/hypershift/thirdparty/clusterapiprovideribmcloud/v1alpha4"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -113,6 +114,15 @@ func SSHKey(controlPlaneNamespace string) *corev1.Secret {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: controlPlaneNamespace,
 			Name:      "ssh-key",
+		},
+	}
+}
+
+func IBMCloudVPCCluster(controlPlaneNamespace string, hostedClusterName string) *v1alpha4.IBMVPCCluster {
+	return &v1alpha4.IBMVPCCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: controlPlaneNamespace,
+			Name:      hostedClusterName,
 		},
 	}
 }

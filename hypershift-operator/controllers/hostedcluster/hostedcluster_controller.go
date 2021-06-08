@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
+	"github.com/openshift/hypershift/thirdparty/clusterapiprovideribmcloud/v1alpha4"
 	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/kas"
 	kasmanifests "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/manifests"
 	"strings"
@@ -391,6 +392,21 @@ func (r *HostedClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile AWSCluster: %w", err)
 		}
 		infraCR = awsCluster
+	case hyperv1.IBMCloudPlatform:
+		// Reconcile external IBM Cloud PPlatform Cluster
+		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(hcp), hcp); err != nil {
+			r.Log.Error(err, "failed to get control plane ref")
+			return reconcile.Result{}, err
+		}
+
+		ibmCloudVPCCluster := controlplaneoperator.IBMCloudVPCCluster(controlPlaneNamespace.Name, hcluster.Name)
+		_, err = controllerutil.CreateOrPatch(ctx, r.Client, ibmCloudVPCCluster, func() error {
+			return reconcileIBMCloudVPCCluster(ibmCloudVPCCluster, hcluster, hcp.Status.ControlPlaneEndpoint)
+		})
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to reconcile IBMCloudVPCCluster: %w", err)
+		}
+		infraCR = ibmCloudVPCCluster
 	default:
 		// TODO(alberto): for platform None implement back a "pass through" infra CR similar to externalInfraCluster.
 	}
@@ -1098,6 +1114,22 @@ func reconcileAWSCluster(awsCluster *capiawsv1.AWSCluster, hcluster *hyperv1.Hos
 	return nil
 }
 
+func reconcileIBMCloudVPCCluster(ibmCloudVPCCluster *v1alpha4.IBMVPCCluster, hcluster *hyperv1.HostedCluster, apiEndpoint hyperv1.APIEndpoint) error {
+	// We only create this resource once and then let CAPI own it
+	ibmCloudVPCCluster.Annotations = map[string]string{
+		hostedClusterAnnotation:    ctrlclient.ObjectKeyFromObject(hcluster).String(),
+		capiv1.ManagedByAnnotation: "external",
+	}
+
+	// Set the values for upper level controller
+	ibmCloudVPCCluster.Status.Ready = true
+	ibmCloudVPCCluster.Spec.ControlPlaneEndpoint = capiv1.APIEndpoint{
+		Host: apiEndpoint.Host,
+		Port: apiEndpoint.Port,
+	}
+	return nil
+}
+
 func reconcileCAPICluster(cluster *capiv1.Cluster, hcluster *hyperv1.HostedCluster, hcp *hyperv1.HostedControlPlane, infraCR client.Object) error {
 	// We only create this resource once and then let CAPI own it
 	if !cluster.CreationTimestamp.IsZero() {
@@ -1107,7 +1139,6 @@ func reconcileCAPICluster(cluster *capiv1.Cluster, hcluster *hyperv1.HostedClust
 	cluster.Annotations = map[string]string{
 		hostedClusterAnnotation: ctrlclient.ObjectKeyFromObject(hcluster).String(),
 	}
-
 	cluster.Spec = capiv1.ClusterSpec{
 		ControlPlaneEndpoint: capiv1.APIEndpoint{},
 		ControlPlaneRef: &corev1.ObjectReference{
@@ -1117,8 +1148,8 @@ func reconcileCAPICluster(cluster *capiv1.Cluster, hcluster *hyperv1.HostedClust
 			Name:       hcp.Name,
 		},
 		InfrastructureRef: &corev1.ObjectReference{
-			APIVersion: "infrastructure.cluster.x-k8s.io/v1alpha4",
-			Kind:       "AWSCluster",
+			APIVersion: infraCR.GetObjectKind().GroupVersionKind().GroupVersion().String(),
+			Kind:       infraCR.GetObjectKind().GroupVersionKind().Kind,
 			Namespace:  infraCR.GetNamespace(),
 			Name:       infraCR.GetName(),
 		},

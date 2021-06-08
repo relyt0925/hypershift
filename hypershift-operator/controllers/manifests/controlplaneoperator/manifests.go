@@ -88,6 +88,10 @@ func AWSCluster(controlPlaneNamespace string, hostedClusterName string) *capiaws
 			Namespace: controlPlaneNamespace,
 			Name:      hostedClusterName,
 		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: capiawsv1.GroupVersion.String(),
+			Kind:       "AWSCluster",
+		},
 	}
 }
 
@@ -123,6 +127,10 @@ func IBMCloudVPCCluster(controlPlaneNamespace string, hostedClusterName string) 
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: controlPlaneNamespace,
 			Name:      hostedClusterName,
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v1alpha4.GroupVersion.String(),
+			Kind:       "IBMVPCCluster",
 		},
 	}
 }

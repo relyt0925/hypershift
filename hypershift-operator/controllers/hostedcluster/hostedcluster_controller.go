@@ -21,9 +21,9 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
-	"github.com/openshift/hypershift/thirdparty/clusterapiprovideribmcloud/v1alpha4"
 	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/kas"
 	kasmanifests "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/manifests"
+	"github.com/openshift/hypershift/thirdparty/clusterapiprovideribmcloud/v1alpha4"
 	"strings"
 	"time"
 
@@ -377,7 +377,7 @@ func (r *HostedClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	switch hcluster.Spec.Platform.Type {
 	// We run the AWS controller for NonePlatform for now
 	// So nodePools can be created to expose ign endpoints that can be used for byo machines to join.
-	case hyperv1.AWSPlatform, hyperv1.NonePlatform, hyperv1.IBMCloudPlatform:
+	case hyperv1.AWSPlatform, hyperv1.NonePlatform:
 		// Reconcile external AWSCluster
 		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(hcp), hcp); err != nil {
 			r.Log.Error(err, "failed to get control plane ref")

@@ -400,7 +400,7 @@ func (r *HostedClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 
 		ibmCloudVPCCluster := controlplaneoperator.IBMCloudVPCCluster(controlPlaneNamespace.Name, hcluster.Name)
-		_, err = controllerutil.CreateOrPatch(ctx, r.Client, ibmCloudVPCCluster, func() error {
+		_, err = controllerutil.CreateOrUpdate(ctx, r.Client, ibmCloudVPCCluster, func() error {
 			return reconcileIBMCloudVPCCluster(ibmCloudVPCCluster, hcluster, hcp.Status.ControlPlaneEndpoint)
 		})
 		if err != nil {

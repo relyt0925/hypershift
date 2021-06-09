@@ -61,7 +61,7 @@ spec:
                 type: object
             type: object
           status:
-            description: IBMVPCClusterStatus defines the observed state of IBMCluster
+            description: IBMClusterStatus defines the observed state of IBMCluster
             properties:
               ready:
                 description: Ready signifies control plane ready

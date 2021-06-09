@@ -23,7 +23,7 @@ import (
 const (
 	// ClusterFinalizer allows system to clean up resources associated with cluster before
 	// removing it from the apiserver.
-	ClusterFinalizer = "ibmvpccluster.infrastructure.cluster.x-k8s.io"
+	ClusterFinalizer = "ibmcluster.infrastructure.cluster.x-k8s.io"
 )
 
 // IBMClusterSpec defines the desired state of IBMCluster
@@ -36,7 +36,7 @@ type IBMClusterSpec struct {
 	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
 }
 
-// IBMVPCClusterStatus defines the observed state of IBMCluster
+// IBMClusterStatus defines the observed state of IBMCluster
 type IBMClusterStatus struct {
 	// Ready signifies control plane ready
 	Ready bool `json:"ready"`

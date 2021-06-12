@@ -177,6 +177,7 @@ func NewKubeAPIServerParams(hcp *hyperv1.HostedControlPlane, images map[string]s
 		kasContainerBootstrap().Name:      unprivilegedSecurityContext,
 		kasContainerApplyBootstrap().Name: unprivilegedSecurityContext,
 		kasContainerMain().Name:           unprivilegedSecurityContext,
+		kasContainerKMS().Name:            unprivilegedSecurityContext,
 		kasContainerVPNClient().Name: {
 			Privileged: pointer.BoolPtr(true),
 		},

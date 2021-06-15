@@ -10,6 +10,11 @@ func init() {
 	SchemeBuilder.Register(&HostedControlPlaneList{})
 }
 
+const (
+	// AuditWebhookKubeconfigKey is the key name in the AuditWebhook secret that stores audit webhook kubeconfig
+	AuditWebhookKubeconfigKey = "webhook-kubeconfig"
+)
+
 // HostedControlPlane defines the desired state of HostedControlPlane
 // +kubebuilder:resource:path=hostedcontrolplanes,shortName=hcp;hcps,scope=Namespaced,categories=cluster-api
 // +kubebuilder:storageversion
@@ -25,17 +30,18 @@ type HostedControlPlane struct {
 
 // HostedControlPlaneSpec defines the desired state of HostedControlPlane
 type HostedControlPlaneSpec struct {
-	ReleaseImage string                      `json:"releaseImage"`
-	PullSecret   corev1.LocalObjectReference `json:"pullSecret"`
-	SigningKey   corev1.LocalObjectReference `json:"signingKey"`
-	IssuerURL    string                      `json:"issuerURL"`
-	ServiceCIDR  string                      `json:"serviceCIDR"`
-	PodCIDR      string                      `json:"podCIDR"`
-	MachineCIDR  string                      `json:"machineCIDR"`
-	SSHKey       corev1.LocalObjectReference `json:"sshKey"`
-	InfraID      string                      `json:"infraID"`
-	Platform     PlatformSpec                `json:"platform"`
-	DNS          DNSSpec                     `json:"dns"`
+	ReleaseImage string                       `json:"releaseImage"`
+	PullSecret   corev1.LocalObjectReference  `json:"pullSecret"`
+	AuditWebhook *corev1.LocalObjectReference `json:"auditWebhook,omitempty"`
+	SigningKey   corev1.LocalObjectReference  `json:"signingKey"`
+	IssuerURL    string                       `json:"issuerURL"`
+	ServiceCIDR  string                       `json:"serviceCIDR"`
+	PodCIDR      string                       `json:"podCIDR"`
+	MachineCIDR  string                       `json:"machineCIDR"`
+	SSHKey       corev1.LocalObjectReference  `json:"sshKey"`
+	InfraID      string                       `json:"infraID"`
+	Platform     PlatformSpec                 `json:"platform"`
+	DNS          DNSSpec                      `json:"dns"`
 
 	// ControllerAvailabilityPolicy specifies whether to run control plane controllers in HA mode
 	// Defaults to SingleReplica when not set

@@ -3,6 +3,7 @@ package kas
 import (
 	"encoding/json"
 	"fmt"
+	hyperv1 "github.com/openshift/hypershift/api/v1alpha1"
 	"path"
 
 	corev1 "k8s.io/api/core/v1"
@@ -18,12 +19,11 @@ import (
 )
 
 const (
-	KubeAPIServerConfigKey    = "config.json"
-	OauthMetadataConfigKey    = "oauthMetadata.json"
-	AuditLogFile              = "audit.log"
-	EgressSelectorConfigKey   = "config.yaml"
-	DefaultEtcdPort           = 2379
-	AuditWebhookKubeconfigKey = "webhook-kubeconfig"
+	KubeAPIServerConfigKey  = "config.json"
+	OauthMetadataConfigKey  = "oauthMetadata.json"
+	AuditLogFile            = "audit.log"
+	EgressSelectorConfigKey = "config.yaml"
+	DefaultEtcdPort         = 2379
 )
 
 func ReconcileConfig(config *corev1.ConfigMap,
@@ -83,7 +83,7 @@ func generateConfig(ns string, p KubeAPIServerConfigParams) *kcpv1.KubeAPIServer
 					BindAddress:       fmt.Sprintf("0.0.0.0:%d", p.ApiServerPort),
 					BindNetwork:       "tcp4",
 					CipherSuites:      hcpconfig.CipherSuites(p.TLSSecurityProfile),
-					MinTLSVersion:     minTLSVersion(p.TLSSecurityProfile),
+					MinTLSVersion:     hcpconfig.MinTLSVersion(p.TLSSecurityProfile),
 				},
 			},
 			CORSAllowedOrigins: corsAllowedOrigins(p.AdditionalCORSAllowedOrigins),
@@ -274,18 +274,6 @@ func configNamedCertificates(servingCerts []configv1.APIServerNamedServingCert) 
 	return result
 }
 
-func minTLSVersion(securityProfile *configv1.TLSSecurityProfile) string {
-	if securityProfile == nil {
-		securityProfile = &configv1.TLSSecurityProfile{
-			Type: configv1.TLSProfileIntermediateType,
-		}
-	}
-	if securityProfile.Type == configv1.TLSProfileCustomType {
-		return string(securityProfile.Custom.MinTLSVersion)
-	}
-	return string(configv1.TLSProfiles[securityProfile.Type].MinTLSVersion)
-}
-
 func corsAllowedOrigins(additionalCORSAllowedOrigins []string) []string {
 	corsAllowed := []string{
 		"//127\\.0\\.0\\.1(:|$)",
@@ -323,5 +311,5 @@ func jwksURL(issuerURL string) string {
 
 func auditWebhookConfigFile() string {
 	cfgDir := kasAuditWebhookConfigFileVolumeMount.Path(kasContainerMain().Name, kasAuditWebhookConfigFileVolume().Name)
-	return path.Join(cfgDir, AuditWebhookKubeconfigKey)
+	return path.Join(cfgDir, hyperv1.AuditWebhookKubeconfigKey)
 }

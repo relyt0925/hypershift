@@ -42,7 +42,7 @@ type KubeAPIServerParams struct {
 	EtcdURL              string                       `json:"etcdAddress"`
 	APIServerPort        int32                        `json:"apiServerPort"`
 	KubeConfigRef        *hyperv1.KubeconfigSecretRef `json:"kubeConfigRef"`
-	AuditWebhookEnabled  bool                         `json:"auditWebhookEnabled"`
+	AuditWebhookRef      *corev1.LocalObjectReference `json:"auditWebhookRef"`
 	config.DeploymentConfig
 	config.OwnerRef
 
@@ -195,8 +195,8 @@ func NewKubeAPIServerParams(hcp *hyperv1.HostedControlPlane, images map[string]s
 		params.CloudProvider = aws.Provider
 		params.CloudProviderConfig = &corev1.LocalObjectReference{Name: manifests.AWSProviderConfig("").Name}
 	}
-	if len(hcp.Spec.AuditWebhook.Name) > 0 {
-		params.AuditWebhookEnabled = true
+	if hcp.Spec.AuditWebhook != nil && len(hcp.Spec.AuditWebhook.Name) > 0 {
+		params.AuditWebhookRef = hcp.Spec.AuditWebhook
 	}
 
 	switch hcp.Spec.ControllerAvailabilityPolicy {
@@ -265,7 +265,7 @@ func (p *KubeAPIServerParams) ConfigParams() KubeAPIServerConfigParams {
 		EtcdURL:                      p.EtcdURL,
 		FeatureGates:                 p.FeatureGates(),
 		NodePortRange:                p.ServiceNodePortRange(),
-		AuditWebhookEnabled:          p.AuditWebhookEnabled,
+		AuditWebhookEnabled:          p.AuditWebhookRef != nil,
 	}
 }
 

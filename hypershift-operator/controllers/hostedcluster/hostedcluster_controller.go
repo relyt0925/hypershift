@@ -25,8 +25,6 @@ import (
 	"time"
 
 	"github.com/openshift/hypershift/api"
-	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/kas"
-	kasmanifests "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/manifests"
 	capiibmv1 "github.com/openshift/hypershift/thirdparty/clusterapiprovideribmcloud/v1alpha4"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"

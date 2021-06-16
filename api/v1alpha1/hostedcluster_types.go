@@ -11,6 +11,11 @@ func init() {
 	SchemeBuilder.Register(&HostedCluster{}, &HostedClusterList{})
 }
 
+const (
+	// AuditWebhookKubeconfigKey is the key name in the AuditWebhook secret that stores audit webhook kubeconfig
+	AuditWebhookKubeconfigKey = "webhook-kubeconfig"
+)
+
 // HostedClusterSpec defines the desired state of HostedCluster
 type HostedClusterSpec struct {
 
@@ -22,9 +27,13 @@ type HostedClusterSpec struct {
 	PullSecret corev1.LocalObjectReference `json:"pullSecret"`
 
 	// AuditWebhook contains metadata for configuring an audit webhook
-	// endpoint for a cluster to process cluster audit events
+	// endpoint for a cluster to process cluster audit events. It references
+	// a secret that contains the webhook information for the audit webhook endpoint.
+	// It is a secret because if the endpoint has MTLS the kubeconfig will contain client
+	// keys. This is currently only supported in IBM Cloud. The kubeconfig needs to be stored
+	// in the secret with a secret key name that corresponds to the constant AuditWebhookKubeconfigKey.
 	// +optional
-	AuditWebhook corev1.LocalObjectReference `json:"auditWebhook,omitempty"`
+	AuditWebhook *corev1.LocalObjectReference `json:"auditWebhook,omitempty"`
 
 	// SigningKey is a reference to a Secret containing a single key "key"
 	// +optional

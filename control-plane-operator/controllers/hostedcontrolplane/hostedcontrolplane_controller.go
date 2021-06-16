@@ -437,8 +437,23 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Reconcile kube scheduler
+	r.Log.Info("Reconciling Kube Scheduler")
 	if err = r.reconcileKubeScheduler(ctx, hostedControlPlane, releaseImage); err != nil {
 		r.Log.Error(err, "failed to reconcile kube controller manager")
+		return ctrl.Result{}, err
+	}
+
+	// Reconcile openshift apiserver
+	r.Log.Info("Reconciling OpenShift API Server")
+	if err = r.reconcileOpenShiftAPIServer(ctx, hostedControlPlane, releaseImage, infraStatus.OpenShiftAPIHost); err != nil {
+		r.Log.Error(err, "failed to reconcile openshift apiserver")
+		return ctrl.Result{}, err
+	}
+
+	// Reconcile openshift oauth apiserver
+	r.Log.Info("Reconciling OpenShift OAuth API Server")
+	if err = r.reconcileOpenShiftOAuthAPIServer(ctx, hostedControlPlane, releaseImage, infraStatus.OauthAPIServerHost); err != nil {
+		r.Log.Error(err, "failed to reconcile openshift oauth apiserver")
 		return ctrl.Result{}, err
 	}
 
@@ -558,7 +573,7 @@ func (r *HostedControlPlaneReconciler) reconcileOAuthServerService(ctx context.C
 	p := oauth.NewOAuthServiceParams(hcp)
 	oauthServerService := manifests.OauthServerService(hcp.Namespace)
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, oauthServerService, func() error {
-		return p.ReconcileService(oauthServerService, serviceStrategy)
+		return oauth.ReconcileService(oauthServerService, p.OwnerRef, serviceStrategy)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile OAuth service: %w", err)
 	}
@@ -567,7 +582,7 @@ func (r *HostedControlPlaneReconciler) reconcileOAuthServerService(ctx context.C
 	}
 	oauthRoute := manifests.OauthServerRoute(hcp.Namespace)
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, oauthRoute, func() error {
-		return p.ReconcileRoute(oauthRoute)
+		return oauth.ReconcileRoute(oauthRoute, p.OwnerRef)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile OAuth route: %w", err)
 	}
@@ -578,7 +593,7 @@ func (r *HostedControlPlaneReconciler) reconcileOpenshiftAPIServerService(ctx co
 	svc := manifests.OpenshiftAPIServerService(hcp.Namespace)
 	p := oapi.NewOpenShiftAPIServerServiceParams(hcp)
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
-		return p.ReconcileOpenShiftAPIService(svc)
+		return oapi.ReconcileOpenShiftAPIService(svc, p.OwnerRef)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile OpenShift API server service: %w", err)
 	}
@@ -589,7 +604,7 @@ func (r *HostedControlPlaneReconciler) reconcileOAuthAPIServerService(ctx contex
 	svc := manifests.OauthAPIServerService(hcp.Namespace)
 	p := oapi.NewOpenShiftAPIServerServiceParams(hcp)
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
-		return p.ReconcileOAuthAPIService(svc)
+		return oapi.ReconcileOAuthAPIService(svc, p.OwnerRef)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile OAuth API server service: %w", err)
 	}
@@ -600,7 +615,7 @@ func (r *HostedControlPlaneReconciler) reconcileOLMPackageServerService(ctx cont
 	svc := manifests.OLMPackageServerService(hcp.Namespace)
 	p := oapi.NewOpenShiftAPIServerServiceParams(hcp)
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
-		return p.ReconcileOLMPackageServerService(svc)
+		return oapi.ReconcileOLMPackageServerService(svc, p.OwnerRef)
 	})
 	if err != nil {
 		return err
@@ -751,8 +766,7 @@ func (r *HostedControlPlaneReconciler) reconcileOAuthServiceStatus(ctx context.C
 			return
 		}
 	}
-	p := oauth.NewOAuthServiceParams(hcp)
-	return p.ReconcileServiceStatus(svc, route, serviceStrategy)
+	return oauth.ReconcileServiceStatus(svc, route, serviceStrategy)
 }
 
 func (r *HostedControlPlaneReconciler) reconcileOpenShiftAPIServerServiceStatus(ctx context.Context, hcp *hyperv1.HostedControlPlane) (string, error) {
@@ -1027,17 +1041,25 @@ func (r *HostedControlPlaneReconciler) reconcilePKI(ctx context.Context, hcp *hy
 	}
 
 	// Konnectivity Server Cert
-	konnectivityServerCertSecret := manifests.KonnectivityServerCertSecret(hcp.Namespace)
-	if _, err := controllerutil.CreateOrUpdate(ctx, r, konnectivityServerCertSecret, func() error {
-		return p.ReconcileKonnectivityServerCertSecret(konnectivityServerCertSecret, rootCASecret)
+	konnectivityServerSecret := manifests.KonnectivityServerSecret(hcp.Namespace)
+	if _, err := controllerutil.CreateOrUpdate(ctx, r, konnectivityServerSecret, func() error {
+		return p.ReconcileKonnectivityServerSecret(konnectivityServerSecret, rootCASecret)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile konnectivity server cert: %w", err)
 	}
 
 	// Konnectivity Cluster Cert
-	konnectivityClusterCertSecret := manifests.KonnectivityClusterCertSecret(hcp.Namespace)
-	if _, err := controllerutil.CreateOrUpdate(ctx, r, konnectivityClusterCertSecret, func() error {
-		return p.ReconcileKonnectivityClusterCertSecret(konnectivityClusterCertSecret, rootCASecret)
+	konnectivityClusterSecret := manifests.KonnectivityClusterSecret(hcp.Namespace)
+	if _, err := controllerutil.CreateOrUpdate(ctx, r, konnectivityClusterSecret, func() error {
+		return p.ReconcileKonnectivityClusterSecret(konnectivityClusterSecret, rootCASecret)
+	}); err != nil {
+		return fmt.Errorf("failed to reconcile konnectivity cluster cert: %w", err)
+	}
+
+	// Konnectivity Agent Cert
+	konnectivityWorkerAgentSecret := manifests.KonnectivityWorkerAgentSecret(hcp.Namespace)
+	if _, err := controllerutil.CreateOrUpdate(ctx, r, konnectivityWorkerAgentSecret, func() error {
+		return p.ReconcileKonnectivityWorkerAgentCertSecret(konnectivityWorkerAgentSecret, rootCASecret)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile konnectivity cluster cert: %w", err)
 	}
@@ -1193,7 +1215,7 @@ func (r *HostedControlPlaneReconciler) reconcileKonnectivity(ctx context.Context
 	p := konnectivity.NewKonnectivityParams(hcp, releaseImage.ComponentImages(), address, port)
 	serverDeployment := manifests.KonnectivityServerDeployment(hcp.Namespace)
 	if _, err := controllerutil.CreateOrUpdate(ctx, r, serverDeployment, func() error {
-		return konnectivity.ReconcileServerDeployment(serverDeployment, p.OwnerRef, p.DeploymentConfig, p.KonnectivityImage)
+		return konnectivity.ReconcileServerDeployment(serverDeployment, p.OwnerRef, p.ServerDeploymentConfig, p.KonnectivityServerImage)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile konnectivity server deployment: %w", err)
 	}
@@ -1202,6 +1224,12 @@ func (r *HostedControlPlaneReconciler) reconcileKonnectivity(ctx context.Context
 		return konnectivity.ReconcileServerLocalService(serverLocalService, p.OwnerRef)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile konnectivity server local service: %w", err)
+	}
+	agentDaemonSet := manifests.KonnectivityWorkerAgentDaemonSet(hcp.Namespace)
+	if _, err := controllerutil.CreateOrUpdate(ctx, r, agentDaemonSet, func() error {
+		return konnectivity.ReconcileWorkerAgentDaemonSet(agentDaemonSet, p.OwnerRef, p.AgentDeamonSetConfig, p.KonnectivityAgentImage, p.ExternalAddress, p.ExternalPort)
+	}); err != nil {
+		return fmt.Errorf("failed to reconcile konnectivity agent daemonset: %w", err)
 	}
 	return nil
 }
@@ -1293,7 +1321,7 @@ func (r *HostedControlPlaneReconciler) reconcileKubeAPIServer(ctx context.Contex
 			p.NamedCertificates(),
 			p.CloudProviderConfig,
 			p.Images,
-			p.AuditWebhookEnabled,
+			p.AuditWebhookRef,
 		)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile api server deployment: %w", err)
@@ -1337,16 +1365,115 @@ func (r *HostedControlPlaneReconciler) reconcileKubeScheduler(ctx context.Contex
 
 	schedulerConfig := manifests.SchedulerConfig(hcp.Namespace)
 	if _, err := controllerutil.CreateOrUpdate(ctx, r, schedulerConfig, func() error {
-		return p.ReconcileConfig(schedulerConfig)
+		return scheduler.ReconcileConfig(schedulerConfig, p.OwnerRef)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile scheduler config: %w", err)
 	}
 
 	schedulerDeployment := manifests.SchedulerDeployment(hcp.Namespace)
 	if _, err := controllerutil.CreateOrUpdate(ctx, r, schedulerDeployment, func() error {
-		return p.ReconcileDeployment(schedulerDeployment)
+		return scheduler.ReconcileDeployment(schedulerDeployment, p.OwnerRef, p.DeploymentConfig, p.HyperkubeImage, p.FeatureGates())
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile scheduler deployment: %w", err)
+	}
+	return nil
+}
+
+func (r *HostedControlPlaneReconciler) reconcileOpenShiftAPIServer(ctx context.Context, hcp *hyperv1.HostedControlPlane, releaseImage *releaseinfo.ReleaseImage, serviceClusterIP string) error {
+	p := oapi.NewOpenShiftAPIServerParams(hcp, releaseImage.ComponentImages())
+
+	oapicfg := manifests.OpenShiftAPIServerConfig(hcp.Namespace)
+	if _, err := controllerutil.CreateOrUpdate(ctx, r, oapicfg, func() error {
+		return oapi.ReconcileConfig(oapicfg, p.OwnerRef, p.EtcdURL, p.IngressDomain(), p.MinTLSVersion(), p.CipherSuites())
+	}); err != nil {
+		return fmt.Errorf("failed to reconcile openshift apiserver config: %w", err)
+	}
+
+	auditCfg := manifests.OpenShiftAPIServerAuditConfig(hcp.Namespace)
+	if _, err := controllerutil.CreateOrUpdate(ctx, r, auditCfg, func() error {
+		return oapi.ReconcileAuditConfig(auditCfg, p.OwnerRef)
+	}); err != nil {
+		return fmt.Errorf("failed to reconcile openshift apiserver audit config: %w", err)
+	}
+
+	deployment := manifests.OpenShiftAPIServerDeployment(hcp.Namespace)
+	if _, err := controllerutil.CreateOrUpdate(ctx, r, deployment, func() error {
+		return oapi.ReconcileDeployment(deployment, p.OwnerRef, p.OpenShiftAPIServerDeploymentConfig, p.OpenShiftAPIServerImage)
+	}); err != nil {
+		return fmt.Errorf("failed to reconcile openshift apiserver deployment: %w", err)
+	}
+
+	workerEndpoints := manifests.OpenShiftAPIServerWorkerEndpoints(hcp.Namespace)
+	if _, err := controllerutil.CreateOrUpdate(ctx, r, workerEndpoints, func() error {
+		return oapi.ReconcileWorkerEndpoints(workerEndpoints, p.OwnerRef, manifests.OpenShiftAPIServerClusterEndpoints(), serviceClusterIP)
+	}); err != nil {
+		return fmt.Errorf("failed to reconcile openshift apiserver endpoints: %w", err)
+	}
+
+	workerService := manifests.OpenShiftAPIServerWorkerService(hcp.Namespace)
+	if _, err := controllerutil.CreateOrUpdate(ctx, r, workerService, func() error {
+		return oapi.ReconcileWorkerService(workerService, p.OwnerRef, manifests.OpenShiftAPIServerClusterService())
+	}); err != nil {
+		return fmt.Errorf("failed to reconcile openshift apiserver worker service: %w", err)
+	}
+
+	rootCA := manifests.RootCASecret(hcp.Namespace)
+	if err := r.Get(ctx, client.ObjectKeyFromObject(rootCA), rootCA); err != nil {
+		return fmt.Errorf("failed to get root ca cert secret: %w", err)
+	}
+	for _, apiSvcGroup := range manifests.OpenShiftAPIServerAPIServiceGroups() {
+		workerAPISvc := manifests.OpenShiftAPIServerWorkerAPIService(apiSvcGroup, hcp.Namespace)
+		if _, err := controllerutil.CreateOrUpdate(ctx, r, workerAPISvc, func() error {
+			return oapi.ReconcileWorkerAPIService(workerAPISvc, p.OwnerRef, manifests.OpenShiftAPIServerClusterService(), rootCA, apiSvcGroup)
+		}); err != nil {
+			return fmt.Errorf("failed to reconcile openshift apiserver worker apiservice (%s): %w", apiSvcGroup, err)
+		}
+	}
+	return nil
+}
+
+func (r *HostedControlPlaneReconciler) reconcileOpenShiftOAuthAPIServer(ctx context.Context, hcp *hyperv1.HostedControlPlane, releaseImage *releaseinfo.ReleaseImage, serviceClusterIP string) error {
+	p := oapi.NewOpenShiftAPIServerParams(hcp, releaseImage.ComponentImages())
+
+	auditCfg := manifests.OpenShiftOAuthAPIServerAuditConfig(hcp.Namespace)
+	if _, err := controllerutil.CreateOrUpdate(ctx, r, auditCfg, func() error {
+		return oapi.ReconcileAuditConfig(auditCfg, p.OwnerRef)
+	}); err != nil {
+		return fmt.Errorf("failed to reconcile openshift oauth apiserver audit config: %w", err)
+	}
+
+	deployment := manifests.OpenShiftOAuthAPIServerDeployment(hcp.Namespace)
+	if _, err := controllerutil.CreateOrUpdate(ctx, r, deployment, func() error {
+		return oapi.ReconcileOAuthAPIServerDeployment(deployment, p.OwnerRef, p.OAuthAPIServerDeploymentParams())
+	}); err != nil {
+		return fmt.Errorf("failed to reconcile openshift oauth apiserver deployment: %w", err)
+	}
+
+	workerEndpoints := manifests.OpenShiftOAuthAPIServerWorkerEndpoints(hcp.Namespace)
+	if _, err := controllerutil.CreateOrUpdate(ctx, r, workerEndpoints, func() error {
+		return oapi.ReconcileWorkerEndpoints(workerEndpoints, p.OwnerRef, manifests.OpenShiftOAuthAPIServerClusterEndpoints(), serviceClusterIP)
+	}); err != nil {
+		return fmt.Errorf("failed to reconcile openshift oauth apiserver endpoints: %w", err)
+	}
+
+	workerService := manifests.OpenShiftOAuthAPIServerWorkerService(hcp.Namespace)
+	if _, err := controllerutil.CreateOrUpdate(ctx, r, workerService, func() error {
+		return oapi.ReconcileWorkerService(workerService, p.OwnerRef, manifests.OpenShiftOAuthAPIServerClusterService())
+	}); err != nil {
+		return fmt.Errorf("failed to reconcile openshift oauth apiserver worker service: %w", err)
+	}
+
+	rootCA := manifests.RootCASecret(hcp.Namespace)
+	if err := r.Get(ctx, client.ObjectKeyFromObject(rootCA), rootCA); err != nil {
+		return fmt.Errorf("failed to get root ca cert secret: %w", err)
+	}
+	for _, apiSvcGroup := range manifests.OpenShiftOAuthAPIServerAPIServiceGroups() {
+		workerAPISvc := manifests.OpenShiftAPIServerWorkerAPIService(apiSvcGroup, hcp.Namespace)
+		if _, err := controllerutil.CreateOrUpdate(ctx, r, workerAPISvc, func() error {
+			return oapi.ReconcileWorkerAPIService(workerAPISvc, p.OwnerRef, manifests.OpenShiftOAuthAPIServerClusterService(), rootCA, apiSvcGroup)
+		}); err != nil {
+			return fmt.Errorf("failed to reconcile openshift oauth apiserver worker apiservice (%s): %w", apiSvcGroup, err)
+		}
 	}
 	return nil
 }

@@ -96,9 +96,9 @@ func ReconcileKubeAPIServerDeployment(deployment *appsv1.Deployment,
 	namedCertificates []configv1.APIServerNamedServingCert,
 	cloudProviderConfigRef *corev1.LocalObjectReference,
 	images KubeAPIServerImages,
-	auditWebhookEnabled bool,
-	kmsKPInfo string,
-	kmsKPRegion string,
+	auditWebhookRef *corev1.LocalObjectReference,
+kmsKPInfo string,
+kmsKPRegion string,
 ) error {
 
 	ownerRef.ApplyTo(deployment)
@@ -160,8 +160,8 @@ func ReconcileKubeAPIServerDeployment(deployment *appsv1.Deployment,
 	deploymentConfig.ApplyTo(deployment)
 	applyNamedCertificateMounts(namedCertificates, &deployment.Spec.Template.Spec)
 	applyCloudConfigVolumeMount(cloudProviderConfigRef, &deployment.Spec.Template.Spec)
-	if auditWebhookEnabled {
-		applyKASAuditWebhookConfigFileVolume(&deployment.Spec.Template.Spec)
+	if auditWebhookRef != nil {
+		applyKASAuditWebhookConfigFileVolume(&deployment.Spec.Template.Spec, auditWebhookRef)
 	}
 	return nil
 }
@@ -537,13 +537,15 @@ func kasAuditWebhookConfigFileVolume() *corev1.Volume {
 	}
 }
 
-func buildKASAuditWebhookConfigFileVolume(v *corev1.Volume) {
-	v.Secret = &corev1.SecretVolumeSource{}
-	v.Secret.SecretName = manifests.KASAuditWebhookConfigFile("").Name
+func buildKASAuditWebhookConfigFileVolume(auditWebhookRef *corev1.LocalObjectReference) func(v *corev1.Volume) {
+	return func(v *corev1.Volume) {
+		v.Secret = &corev1.SecretVolumeSource{}
+		v.Secret.SecretName = auditWebhookRef.Name
+	}
 }
 
-func applyKASAuditWebhookConfigFileVolume(podSpec *corev1.PodSpec) {
-	podSpec.Volumes = append(podSpec.Volumes, util.BuildVolume(kasAuditWebhookConfigFileVolume(), buildKASAuditWebhookConfigFileVolume))
+func applyKASAuditWebhookConfigFileVolume(podSpec *corev1.PodSpec, auditWebhookRef *corev1.LocalObjectReference) {
+	podSpec.Volumes = append(podSpec.Volumes, util.BuildVolume(kasAuditWebhookConfigFileVolume(), buildKASAuditWebhookConfigFileVolume(auditWebhookRef)))
 	var container *corev1.Container
 	for i, c := range podSpec.Containers {
 		if c.Name == kasContainerMain().Name {

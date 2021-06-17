@@ -1571,7 +1571,7 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 	for scanner.Scan() {
 		lineText := scanner.Text()
 		if strings.HasPrefix(lineText, "nameserver") {
-			nameServerIP = strings.Split(lineText, "")[0]
+			nameServerIP = strings.Split(lineText, " ")[0]
 			break
 		}
 	}

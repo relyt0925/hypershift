@@ -144,6 +144,11 @@ func NewOpenShiftAPIServerParams(hcp *hyperv1.HostedControlPlane, images map[str
 			},
 		},
 	}
+	if hcp.Annotations != nil {
+		if _, ok := hcp.Annotations[hyperv1.EtcdClientOverrideAnnotation]; ok {
+			params.EtcdURL = "https://" + hcp.Annotations[hyperv1.EtcdClientOverrideAnnotation] + ":2379"
+		}
+	}
 
 	switch hcp.Spec.ControllerAvailabilityPolicy {
 	case hyperv1.HighlyAvailable:

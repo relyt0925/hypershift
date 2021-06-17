@@ -97,8 +97,8 @@ func ReconcileKubeAPIServerDeployment(deployment *appsv1.Deployment,
 	cloudProviderConfigRef *corev1.LocalObjectReference,
 	images KubeAPIServerImages,
 	auditWebhookRef *corev1.LocalObjectReference,
-kmsKPInfo string,
-kmsKPRegion string,
+	kmsKPInfo string,
+	kmsKPRegion string,
 ) error {
 
 	ownerRef.ApplyTo(deployment)

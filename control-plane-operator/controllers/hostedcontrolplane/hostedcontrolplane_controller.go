@@ -1,6 +1,7 @@
 package hostedcontrolplane
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	crand "crypto/rand"
@@ -11,6 +12,7 @@ import (
 	"math/big"
 	"math/rand"
 	"net/url"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -1328,8 +1330,8 @@ func (r *HostedControlPlaneReconciler) reconcileKubeAPIServer(ctx context.Contex
 			p.CloudProviderConfig,
 			p.Images,
 			p.AuditWebhookRef,
-p.KMSKPInfo,
-p.KMSKPRegion,
+			p.KMSKPInfo,
+			p.KMSKPRegion,
 		)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile api server deployment: %w", err)
@@ -1508,7 +1510,25 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 		return nil, fmt.Errorf("couldn't determine cluster base domain  name: %w", err)
 	}
 
+	//TODO: Hack to get nameserver
+	f, err := os.Open("/etc/resolv.conf")
+	if err != nil {
+		return nil, err
+	}
+	scanner := bufio.NewScanner(f)
+	// https://golang.org/pkg/bufio/#Scanner.Scan
+	nameServerIP := "172.30.0.10"
+	for scanner.Scan() {
+		lineText := scanner.Text()
+		if strings.HasPrefix(lineText, "nameserver") {
+			nameServerIP = strings.Split(lineText, "")[0]
+			break
+		}
+	}
+	f.Close()
+
 	params := render.NewClusterParams()
+	params.ManagementClusterDNSResolverIP = nameServerIP
 	params.Namespace = targetNamespace
 	params.ExternalAPIDNSName = infraStatus.APIHost
 	params.ExternalAPIPort = uint(infraStatus.APIPort)

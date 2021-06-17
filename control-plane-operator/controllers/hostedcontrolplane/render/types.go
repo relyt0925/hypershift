@@ -124,6 +124,7 @@ type ClusterParams struct {
 	KPRegion                        string                 `json:"kpRegion"`
 	KPAPIKey                        string                 `json:"kpAPIKey"`
 	APINodePort                     uint                   `json:"apiNodePort"`
+	ManagementClusterDNSResolverIP  string                 `json:"managementClusterDNSResolverIP"`
 }
 
 type NamedCert struct {

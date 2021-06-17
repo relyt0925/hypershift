@@ -5,4 +5,4 @@ metadata:
 data:
   resolv.dnsmasq: |-
     nameserver  {{ dns .ServiceCIDR }}
-    nameserver  172.30.0.10
+    nameserver  {{ .ManagementClusterDNSResolverIP }}

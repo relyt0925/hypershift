@@ -21,7 +21,6 @@ spec:
       labels:
         app: packageserver
     spec:
-      serviceAccount: vpn
       dnsPolicy: None
       dnsConfig:
         # dnsmasq in the pod configured to check guest + host dns servers

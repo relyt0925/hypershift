@@ -11,8 +11,11 @@ import (
 
 type OAuthServerParams struct {
 	OwnerRef                config.OwnerRef `json:"ownerRef"`
-	ExternalHost            string          `json:"externalHost"`
-	ExternalPort            int32           `json:"externalPort"`
+	ExternalOauthHost            string          `json:"externalOauthHost"`
+	ExternalOauthPort            int32           `json:"externalOauthPort"`
+	ExternalKASHost             string `json:"externalKASHost"`
+	ExternalKASPort             int32 `json:"externalKASPort"`
+
 	OAuthServerImage        string
 	config.DeploymentConfig `json:",inline"`
 	OAuth                   configv1.OAuth     `json:"oauth"`
@@ -33,11 +36,13 @@ type OAuthConfigParams struct {
 	BaseDomain string
 }
 
-func NewOAuthServerParams(hcp *hyperv1.HostedControlPlane, images map[string]string, host string, port int32) *OAuthServerParams {
+func NewOAuthServerParams(hcp *hyperv1.HostedControlPlane, images map[string]string, oauthHost string, oauthPort int32, kasHost string, kasPort int32) *OAuthServerParams {
 	p := &OAuthServerParams{
 		OwnerRef:         config.OwnerRefFrom(hcp),
-		ExternalHost:     host,
-		ExternalPort:     port,
+		ExternalOauthHost:     oauthHost,
+		ExternalOauthPort:     oauthPort,
+		ExternalKASPort: kasPort,
+		ExternalKASHost: kasHost,
 		OAuthServerImage: images["oauth-server"],
 		OAuth: configv1.OAuth{
 			Spec: configv1.OAuthSpec{
@@ -66,6 +71,37 @@ func NewOAuthServerParams(hcp *hyperv1.HostedControlPlane, images map[string]str
 			},
 		},
 	}
+	//TODO: minor hack to prototype
+	p.OAuth.Spec.IdentityProviders = []configv1.IdentityProvider{
+		configv1.IdentityProvider{
+			Name: "IAM",
+			MappingMethod: configv1.MappingMethodLookup,
+			IdentityProviderConfig: configv1.IdentityProviderConfig{
+				Type: configv1.IdentityProviderTypeOpenID,
+				OpenID: &configv1.OpenIDIdentityProvider{
+					//TODO: Need iam_id in ID section
+					Claims: configv1.OpenIDClaims{
+					Email: []string{
+						"email",
+					},
+					Name: []string{
+						"name",
+					},
+					PreferredUsername: []string{
+						"preferred_username",
+					},
+					},
+					ClientID: "clientid",
+					ClientSecret: configv1.SecretNameReference{
+						Name: "my-secret",
+					},
+					//TODO: No support for the token accountid url
+					Issuer: "https://iam.test.cloud.ibm.com/identity",
+				},
+			},
+		},
+	}
+
 	switch hcp.Spec.ControllerAvailabilityPolicy {
 	case hyperv1.HighlyAvailable:
 		p.Replicas = 3
@@ -77,8 +113,10 @@ func NewOAuthServerParams(hcp *hyperv1.HostedControlPlane, images map[string]str
 
 func (p *OAuthServerParams) ConfigParams(servingCert *corev1.Secret) *OAuthConfigParams {
 	return &OAuthConfigParams{
-		ExternalHost:             p.ExternalHost,
-		ExternalPort:             p.ExternalPort,
+		ExternalOauthHost:             p.ExternalOauthHost,
+		ExternalOauthPort:             p.ExternalOauthPort,
+		ExternalKASHost: p.ExternalKASHost,
+		ExternalKASPort: p.ExternalKASPort,
 		ServingCert:              servingCert,
 		CipherSuites:             config.CipherSuites(p.APIServer.Spec.TLSSecurityProfile),
 		MinTLSVersion:            config.MinTLSVersion(p.APIServer.Spec.TLSSecurityProfile),

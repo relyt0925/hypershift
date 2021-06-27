@@ -289,7 +289,7 @@ func convertProviderConfigToIDPData(
 			URLs:                     *urls,
 			Claims: osinv1.OpenIDClaims{
 				// There is no longer a user-facing setting for ID as it is considered unsafe
-				ID:                []string{configv1.UserIDClaim},
+				ID:                []string{"iam_id"},
 				PreferredUsername: openIDConfig.Claims.PreferredUsername,
 				Name:              openIDConfig.Claims.Name,
 				Email:             openIDConfig.Claims.Email,

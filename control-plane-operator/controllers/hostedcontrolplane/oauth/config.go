@@ -100,10 +100,87 @@ func generateOAuthConfig(ctx context.Context, client crclient.Client, namespace 
 		OAuthConfig: osinv1.OAuthConfig{
 			MasterCA:                    &caCertPath,
 			MasterURL:                   fmt.Sprintf("https://%s:%d", manifests.OAuthServerService("").Name, OAuthServerPort),
-			MasterPublicURL:             fmt.Sprintf("https://%s:%d", params.ExternalHost, params.ExternalPort),
+			MasterPublicURL:             fmt.Sprintf("https://%s:%d", params.ExternalOauthHost, params.ExternalOauthPort),
 			AlwaysShowProviderSelection: false,
 			GrantConfig: osinv1.GrantConfig{
 				Method:               osinv1.GrantHandlerDeny, // force denial as this field must be set per OAuth client
+				ServiceAccountMethod: osinv1.GrantHandlerPrompt,
+			},
+			SessionConfig: &osinv1.SessionConfig{
+				SessionSecretsFile:   cpath(oauthVolumeSessionSecret().Name, SessionSecretsFileKey),
+				SessionMaxAgeSeconds: 5 * 60, // 5 minutes
+				SessionName:          "ssn",
+			},
+			Templates: &osinv1.OAuthTemplates{
+				Login:             cpath(oauthVolumeLoginTemplate().Name, LoginTemplateKey),
+				ProviderSelection: cpath(oauthVolumeProvidersTemplate().Name, ProviderSelectionTemplateKey),
+				Error:             cpath(oauthVolumeErrorTemplate().Name, ErrorsTemplateKey),
+			},
+			TokenConfig: osinv1.TokenConfig{
+				AccessTokenMaxAgeSeconds:    params.AccessTokenMaxAgeSeconds,
+				AuthorizeTokenMaxAgeSeconds: defaultAuthorizeTokenMaxAgeSeconds,
+			},
+			IdentityProviders: identityProviders,
+		},
+	}
+	return serverConfig, nil
+}
+
+func generateOAuthConfigIBM(ctx context.Context, client crclient.Client, namespace string, params *OAuthConfigParams) (*osinv1.OsinServerConfig, error) {
+	identityProviders, _, err := convertIdentityProviders(ctx, params.IdentityProviders, client, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	cpath := func(volume, file string) string {
+		dir := volumeMounts.Path(oauthContainerMain().Name, volume)
+		return path.Join(dir, file)
+	}
+
+	caCertPath := ""
+	if _, hasCA := params.ServingCert.Data[pki.CASignerCertMapKey]; hasCA {
+		caCertPath = cpath(oauthVolumeServingCert().Name, pki.CASignerCertMapKey)
+	}
+
+	serverConfig := &osinv1.OsinServerConfig{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "OsinServerConfig",
+			APIVersion: osinv1.GroupVersion.String(),
+		},
+		GenericAPIServerConfig: configv1.GenericAPIServerConfig{
+			ServingInfo: configv1.HTTPServingInfo{
+				ServingInfo: configv1.ServingInfo{
+					BindAddress: fmt.Sprintf("0.0.0.0:%d", OAuthServerPort),
+					BindNetwork: "tcp",
+					CertInfo: configv1.CertInfo{
+						CertFile: cpath(oauthVolumeServingCert().Name, corev1.TLSCertKey),
+						KeyFile:  cpath(oauthVolumeServingCert().Name, corev1.TLSPrivateKeyKey),
+					},
+					CipherSuites:  params.CipherSuites,
+					MinTLSVersion: params.MinTLSVersion,
+					ClientCA:      "",
+				},
+				MaxRequestsInFlight:   1000,
+				RequestTimeoutSeconds: 5 * 60,
+			},
+			AuditConfig: configv1.AuditConfig{},
+			KubeClientConfig: configv1.KubeClientConfig{
+				KubeConfig: cpath(oauthVolumeKubeconfig().Name, kas.KubeconfigKey),
+				ConnectionOverrides: configv1.ClientConnectionOverrides{
+					QPS:   400,
+					Burst: 400,
+				},
+			},
+		},
+		OAuthConfig: osinv1.OAuthConfig{
+			MasterCA:                    &caCertPath,
+			AssetPublicURL: fmt.Sprintf("https://console-openshift-console.%s", params.BaseDomain),
+			LoginURL: fmt.Sprintf("https://%s:%d", params.ExternalKASHost, params.ExternalKASPort),
+			MasterURL:                   fmt.Sprintf("https://%s:%d", manifests.OAuthServerService("").Name, OAuthServerPort),
+			MasterPublicURL:             fmt.Sprintf("https://%s:%d", params.ExternalOauthHost, params.ExternalOauthPort),
+			AlwaysShowProviderSelection: false,
+			GrantConfig: osinv1.GrantConfig{
+				Method:               osinv1.GrantHandlerAuto, // force denial as this field must be set per OAuth client
 				ServiceAccountMethod: osinv1.GrantHandlerPrompt,
 			},
 			SessionConfig: &osinv1.SessionConfig{

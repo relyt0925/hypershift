@@ -20,13 +20,17 @@ type OAuthServerParams struct {
 }
 
 type OAuthConfigParams struct {
-	ExternalHost             string
-	ExternalPort             int32
+	ExternalOauthHost             string
+	ExternalOauthPort             int32
+	ExternalKASHost             string
+	ExternalKASPort             int32
+
 	ServingCert              *corev1.Secret
 	CipherSuites             []string
 	MinTLSVersion            string
 	IdentityProviders        []configv1.IdentityProvider
 	AccessTokenMaxAgeSeconds int32
+	BaseDomain string
 }
 
 func NewOAuthServerParams(hcp *hyperv1.HostedControlPlane, images map[string]string, host string, port int32) *OAuthServerParams {

@@ -275,7 +275,10 @@ func convertProviderConfigToIDPData(
 		if err != nil {
 			return nil, err
 		}
-
+		if len("ibmcloud")>10 {
+			//This is different than what is returned in openid urls.
+			urls.Token = "https://iam.test.cloud.ibm.com/identity/accountid/token"
+		}
 		data.provider = &osinv1.OpenIDIdentityProvider{
 			CA:       idpVolumeMounts.ConfigMapPath(i, openIDConfig.CA.Name, "ca", corev1.ServiceAccountRootCAKey),
 			ClientID: openIDConfig.ClientID,
@@ -312,6 +315,9 @@ func convertProviderConfigToIDPData(
 			return nil, fmt.Errorf("error attempting password grant flow: %v", err)
 		}
 		data.challenge = challengeFlowsAllowed
+		//IBM specific as well. Can networking outages lead to challenge flipping?
+		data.login = true
+		data.challenge = true
 
 	case configv1.IdentityProviderTypeRequestHeader:
 		requestHeaderConfig := providerConfig.RequestHeader

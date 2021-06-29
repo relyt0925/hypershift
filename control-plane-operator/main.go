@@ -50,9 +50,9 @@ const (
 	// FIXME: Set to upstream image when DNS resolution is fixed for etcd service
 	etcdOperatorImage = "quay.io/hypershift/etcd-operator:v0.9.4-patched"
 	// TODO: switch to upstream after a tagged release contains https://github.com/kubernetes-sigs/apiserver-network-proxy/pull/245
-	konnectivityServerImage = "registry.ng.bluemix.net/armada-master/proxy-server-amd64:6b68317da6e489b90a58e9fd670061dd567eda64"
+	konnectivityServerImage = "registry.ng.bluemix.net/armada-master/proxy-server-amd64:1902237afd2a09241101b512da4feb65276861c8"
 	//konnectivityServerImage = "us.gcr.io/k8s-artifacts-prod/kas-network-proxy/proxy-server:v0.0.20"
-	konnectivityAgentImage = "registry.ng.bluemix.net/armada-master/proxy-agent-amd64:6b68317da6e489b90a58e9fd670061dd567eda64"
+	konnectivityAgentImage = "registry.ng.bluemix.net/armada-master/proxy-agent-amd64:1902237afd2a09241101b512da4feb65276861c8"
 )
 
 func NewStartCommand() *cobra.Command {

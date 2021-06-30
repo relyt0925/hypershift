@@ -137,6 +137,9 @@ spec:
   platform:
     aws:
       instanceType: m5.large
+    type: AWS
+  release:
+    image: quay.io/openshift-release-dev/ocp-release:4.8.0-rc.0-x86_64
 ```
 
 With autoscaling:
@@ -155,8 +158,11 @@ spec:
   platform:
     aws:
       instanceType: m5.large
+    type: AWS
+  release:
+    image: quay.io/openshift-release-dev/ocp-release:4.8.0-rc.0-x86_64
 ```
-## Trouble Shooting
+## Troubleshooting
 
 **Pull Secret Issues**
 

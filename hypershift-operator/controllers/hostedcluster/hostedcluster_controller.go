@@ -240,6 +240,40 @@ func (r *HostedClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		meta.SetStatusCondition(&hcluster.Status.Conditions, computeHostedClusterAvailability(hcluster, hcp))
 	}
 
+	// Set InvalidConfiguration condition
+	{
+		controlPlaneNamespace := manifests.HostedControlPlaneNamespace(hcluster.Namespace, hcluster.Name)
+		hcp := controlplaneoperator.HostedControlPlane(controlPlaneNamespace.Name, hcluster.Name)
+		err := r.Client.Get(ctx, client.ObjectKeyFromObject(hcp), hcp)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				hcp = nil
+			} else {
+				return ctrl.Result{}, fmt.Errorf("failed to get hostedcontrolplane: %w", err)
+			}
+		}
+		if hcp != nil {
+			invalidConfigHCPCondition := meta.FindStatusCondition(hcp.Status.Conditions, string(hyperv1.InvalidConfiguration))
+			invalidConfigCondition := meta.FindStatusCondition(hcluster.Status.Conditions, string(hyperv1.InvalidHostedClusterConfiguration))
+			if invalidConfigHCPCondition != nil && invalidConfigHCPCondition.Status == metav1.ConditionTrue {
+				cond := metav1.Condition{
+					Type:    string(hyperv1.InvalidHostedClusterConfiguration),
+					Status:  metav1.ConditionTrue,
+					Message: invalidConfigHCPCondition.Message,
+					Reason:  invalidConfigHCPCondition.Reason,
+				}
+				meta.SetStatusCondition(&hcluster.Status.Conditions, cond)
+			} else {
+				if invalidConfigCondition != nil && invalidConfigCondition.Status == metav1.ConditionTrue {
+					invalidConfigCondition.Status = metav1.ConditionFalse
+					invalidConfigCondition.Reason = "AsExpected"
+					invalidConfigCondition.Message = "Configuration is valid"
+					meta.SetStatusCondition(&hcluster.Status.Conditions, *invalidConfigCondition)
+				}
+			}
+		}
+	}
+
 	// Set Ignition Server endpoint
 	{
 		controlPlaneNamespace := manifests.HostedControlPlaneNamespace(hcluster.Namespace, hcluster.Name)
@@ -510,6 +544,49 @@ func (r *HostedClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
+	// Reconcile global config related configmaps and secrets
+	{
+		for _, configMapRef := range hcluster.Spec.Configuration.ConfigMapRefs {
+			sourceCM := &corev1.ConfigMap{}
+			if err := r.Get(ctx, ctrlclient.ObjectKey{Namespace: hcluster.Namespace, Name: configMapRef.Name}, sourceCM); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to get referenced configmap %s/%s: %w", hcluster.Namespace, configMapRef.Name, err)
+			}
+			destCM := &corev1.ConfigMap{}
+			destCM.Name = sourceCM.Name
+			destCM.Namespace = controlPlaneNamespace.Name
+			if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, destCM, func() error {
+				destCM.Annotations = sourceCM.Annotations
+				destCM.Labels = sourceCM.Labels
+				destCM.Data = sourceCM.Data
+				destCM.BinaryData = sourceCM.BinaryData
+				destCM.Immutable = sourceCM.Immutable
+				return nil
+			}); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to reconcile referenced config map %s/%s: %w", destCM.Namespace, destCM.Name, err)
+			}
+		}
+
+		for _, secretRef := range hcluster.Spec.Configuration.SecretRefs {
+			sourceSecret := &corev1.Secret{}
+			if err := r.Get(ctx, ctrlclient.ObjectKey{Namespace: hcluster.Namespace, Name: secretRef.Name}, sourceSecret); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to get referenced secret %s/%s: %w", hcluster.Namespace, secretRef.Name, err)
+			}
+			destSecret := &corev1.Secret{}
+			destSecret.Name = sourceSecret.Name
+			destSecret.Namespace = controlPlaneNamespace.Name
+			if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, destSecret, func() error {
+				destSecret.Annotations = sourceSecret.Annotations
+				destSecret.Labels = sourceSecret.Labels
+				destSecret.Data = sourceSecret.Data
+				destSecret.Immutable = sourceSecret.Immutable
+				destSecret.Type = sourceSecret.Type
+				return nil
+			}); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to reconcile secret %s/%s: %w", destSecret.Namespace, destSecret.Name, err)
+			}
+		}
+	}
+
 	// Reconcile the HostedControlPlane
 	hcp := controlplaneoperator.HostedControlPlane(controlPlaneNamespace.Name, hcluster.Name)
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, hcp, func() error {
@@ -713,6 +790,8 @@ func reconcileHostedControlPlane(hcp *hyperv1.HostedControlPlane, hcluster *hype
 	if rolloutComplete {
 		hcp.Spec.ReleaseImage = hcluster.Spec.Release.Image
 	}
+
+	hcp.Spec.Configuration = hcluster.Spec.Configuration
 
 	return nil
 }

@@ -649,6 +649,9 @@ func reconcileHostedControlPlane(hcp *hyperv1.HostedControlPlane, hcluster *hype
 		hostedClusterAnnotation: ctrlclient.ObjectKeyFromObject(hcluster).String(),
 	}
 	if hcluster.Annotations != nil {
+		if _, ok := hcluster.Annotations[hyperv1.DisablePKIReconciliationAnnotation]; ok {
+			hcp.Annotations[hyperv1.DisablePKIReconciliationAnnotation] = hcluster.Annotations[hyperv1.DisablePKIReconciliationAnnotation]
+		}
 		if _, ok := hcluster.Annotations[hyperv1.SecurePortOverrideAnnotation]; ok {
 			hcp.Annotations[hyperv1.SecurePortOverrideAnnotation] = hcluster.Annotations[hyperv1.SecurePortOverrideAnnotation]
 		}

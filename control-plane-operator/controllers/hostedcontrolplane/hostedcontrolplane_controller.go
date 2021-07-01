@@ -432,7 +432,7 @@ func (r *HostedControlPlaneReconciler) update(ctx context.Context, hostedControl
 	}
 
 	// Reconcile PKI
-	if hostedControlPlane.Spec.Etcd.ManagementType == hyperv1.Managed {
+	if _, exists := hostedControlPlane.Annotations[hyperv1.DisablePKIReconciliationAnnotation]; !exists {
 		r.Log.Info("Reconciling PKI")
 		if err := r.reconcilePKI(ctx, hostedControlPlane, infraStatus); err != nil {
 			return fmt.Errorf("failed to reconcile PKI: %w", err)

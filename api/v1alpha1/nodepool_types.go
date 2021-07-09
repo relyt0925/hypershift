@@ -15,10 +15,14 @@ const (
 
 // The following are reasons for the IgnitionEndpointAvailable condition.
 const (
+	MachineConfigServerDeploymentAsExpected          = "IgnitionServerDeploymentAsExpected"
+	MachineConfigServerDeploymentStatusUnknownReason = "IgnitionServerDeploymentStatusUnknown"
+	MachineConfigServerDeploymentUnavailableReason   = "IgnitionServerDeploymentUnavailable"
+
 	IgnitionEndpointMissingReason string = "IgnitionEndpointMissing"
 	IgnitionCACertMissingReason   string = "IgnitionCACertMissing"
-	IgnitionTokenMissingError     string = "IgnitionTokenError"
-	IgnitionUserDataErrorReason   string = "IgnitionUserDataError"
+	IgnitionTokenMissingReason    string = "IgnitionTokenMissing"
+	IgnitionPayloadErrorReason    string = "IgnitionPayloadError"
 )
 
 func init() {

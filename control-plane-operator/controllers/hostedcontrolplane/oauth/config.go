@@ -123,5 +123,8 @@ func generateOAuthConfig(ctx context.Context, client crclient.Client, namespace 
 			IdentityProviders: identityProviders,
 		},
 	}
+	if len(params.LoginURLOverride) > 0 {
+		serverConfig.OAuthConfig.LoginURL = params.LoginURLOverride
+	}
 	return serverConfig, nil
 }

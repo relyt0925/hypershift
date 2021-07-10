@@ -27,6 +27,10 @@ type OAuthServerParams struct {
 	// OauthConfigOverrides contains a mapping from provider name to the config overrides specified for the provider.
 	// The only supported use case of using this is for the IBMCloud IAM OIDC provider.
 	OauthConfigOverrides map[string]*ConfigOverride
+	// LoginURLOverride can be used to specify an override for the oauth config login url. The need for this arises
+	// when the login a provider uses doesn't conform to the standard login url in hypershift. The only supported use case
+	// for this is IBMCloud Red Hat Openshift
+	LoginURLOverride string
 }
 
 type OAuthConfigParams struct {
@@ -40,6 +44,10 @@ type OAuthConfigParams struct {
 	// OauthConfigOverrides contains a mapping from provider name to the config overrides specified for the provider.
 	// The only supported use case of using this is for the IBMCloud IAM OIDC provider.
 	OauthConfigOverrides map[string]*ConfigOverride
+	// LoginURLOverride can be used to specify an override for the oauth config login url. The need for this arises
+	// when the login a provider uses doesn't conform to the standard login url in hypershift. The only supported use case
+	// for this is IBMCloud Red Hat Openshift
+	LoginURLOverride string
 }
 
 // ConfigOverride defines the oauth parameters that can be overriden in special use cases. The only supported
@@ -97,19 +105,18 @@ func NewOAuthServerParams(ctx context.Context, hcp *hyperv1.HostedControlPlane, 
 	}
 	p.OauthConfigOverrides = map[string]*ConfigOverride{}
 	for annotationKey, annotationValue := range hcp.Annotations {
-		identityProvider := ""
 		if strings.HasPrefix(annotationKey, hyperv1.IdentityProviderOverridesAnnotationPrefix) {
 			tokenizedString := strings.Split(annotationKey, hyperv1.IdentityProviderOverridesAnnotationPrefix)
 			if len(tokenizedString) == 2 {
-				identityProvider = tokenizedString[1]
+				identityProvider := tokenizedString[1]
+				providerConfigOverride := &ConfigOverride{}
+				err := json.Unmarshal([]byte(annotationValue), providerConfigOverride)
+				if err == nil {
+					p.OauthConfigOverrides[identityProvider] = providerConfigOverride
+				}
 			}
-		}
-		if identityProvider != "" {
-			providerConfigOverride := &ConfigOverride{}
-			err := json.Unmarshal([]byte(annotationValue), providerConfigOverride)
-			if err == nil {
-				p.OauthConfigOverrides[identityProvider] = providerConfigOverride
-			}
+		} else if annotationKey == hyperv1.OauthLoginURLOverrideAnnotation {
+			p.LoginURLOverride = annotationValue
 		}
 	}
 	return p
@@ -125,6 +132,7 @@ func (p *OAuthServerParams) ConfigParams(servingCert *corev1.Secret) *OAuthConfi
 		IdentityProviders:        p.OAuth.Spec.IdentityProviders,
 		AccessTokenMaxAgeSeconds: p.OAuth.Spec.TokenConfig.AccessTokenMaxAgeSeconds,
 		OauthConfigOverrides:     p.OauthConfigOverrides,
+		LoginURLOverride:         p.LoginURLOverride,
 	}
 }
 

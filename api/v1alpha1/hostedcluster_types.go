@@ -17,6 +17,7 @@ const (
 	AuditWebhookKubeconfigKey                 = "webhook-kubeconfig"
 	DisablePKIReconciliationAnnotation        = "hypershift.openshift.io/disable-pki-reconciliation"
 	IdentityProviderOverridesAnnotationPrefix = "idpoverrides.hypershift.openshift.io/"
+	OauthLoginURLOverrideAnnotation           = "oauth.hypershift.openshift.io/login-url-override"
 )
 
 // HostedClusterSpec defines the desired state of HostedCluster

@@ -310,7 +310,6 @@ func convertProviderConfigToIDPData(
 				Kind:       "OpenIDIdentityProvider",
 				APIVersion: osinv1.GroupVersion.String(),
 			},
-			CA:       idpVolumeMounts.ConfigMapPath(i, openIDConfig.CA.Name, "ca", corev1.ServiceAccountRootCAKey),
 			ClientID: openIDConfig.ClientID,
 			ClientSecret: configv1.StringSource{
 				StringSourceSpec: configv1.StringSourceSpec{
@@ -353,8 +352,11 @@ func convertProviderConfigToIDPData(
 		if err != nil {
 			return nil, fmt.Errorf("error attempting password grant flow: %v", err)
 		}
-		data.challenge = challengeFlowsAllowed
+		if len(openIDConfig.CA.Name) > 0 {
+			openIDProviderData.CA = idpVolumeMounts.ConfigMapPath(i, openIDConfig.CA.Name, "ca", corev1.ServiceAccountRootCAKey)
+		}
 		data.provider = openIDProviderData
+		data.challenge = challengeFlowsAllowed
 	case configv1.IdentityProviderTypeRequestHeader:
 		requestHeaderConfig := providerConfig.RequestHeader
 		if requestHeaderConfig == nil {

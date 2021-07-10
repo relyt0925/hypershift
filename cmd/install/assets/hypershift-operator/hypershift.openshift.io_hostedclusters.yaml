@@ -144,6 +144,8 @@ spec:
                 required:
                 - managementType
                 type: object
+              fips:
+                type: boolean
               infraID:
                 description: InfraID is used to identify the cluster in cloud platforms
                 type: string
@@ -155,12 +157,20 @@ spec:
                 properties:
                   machineCIDR:
                     type: string
+                  networkType:
+                    default: OpenShiftSDN
+                    description: NetworkType specifies the SDN provider used for cluster networking.
+                    enum:
+                    - OpenShiftSDN
+                    - Calico
+                    type: string
                   podCIDR:
                     type: string
                   serviceCIDR:
                     type: string
                 required:
                 - machineCIDR
+                - networkType
                 - podCIDR
                 - serviceCIDR
                 type: object

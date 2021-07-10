@@ -32,15 +32,21 @@ type HostedControlPlaneSpec struct {
 	ServiceCIDR  string                      `json:"serviceCIDR"`
 	PodCIDR      string                      `json:"podCIDR"`
 	MachineCIDR  string                      `json:"machineCIDR"`
-	SSHKey       corev1.LocalObjectReference `json:"sshKey"`
-	InfraID      string                      `json:"infraID"`
-	Platform     PlatformSpec                `json:"platform"`
-	DNS          DNSSpec                     `json:"dns"`
+	// NetworkType specifies the SDN provider used for cluster networking.
+	NetworkType NetworkType                 `json:"networkType"`
+	SSHKey      corev1.LocalObjectReference `json:"sshKey"`
+	InfraID     string                      `json:"infraID"`
+	Platform    PlatformSpec                `json:"platform"`
+	DNS         DNSSpec                     `json:"dns"`
 
 	// ControllerAvailabilityPolicy specifies whether to run control plane controllers in HA mode
 	// Defaults to SingleReplica when not set
 	// +optional
 	ControllerAvailabilityPolicy AvailabilityPolicy `json:"controllerAvailabilityPolicy,omitempty"`
+
+	// FIPS specifies if the nodes for the cluster will be running in FIPS mode
+	// +optional
+	FIPS bool `json:"fips"`
 
 	// KubeConfig specifies the name and key for the kubeconfig secret
 	// +optional

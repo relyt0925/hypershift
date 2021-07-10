@@ -672,10 +672,12 @@ func reconcileHostedControlPlane(hcp *hyperv1.HostedControlPlane, hcluster *hype
 	if hcluster.Spec.AuditWebhook != nil && len(hcluster.Spec.AuditWebhook.Name) > 0 {
 		hcp.Spec.AuditWebhook = hcluster.Spec.AuditWebhook.DeepCopy()
 	}
+	hcp.Spec.FIPS = hcluster.Spec.FIPS
 	hcp.Spec.IssuerURL = hcluster.Spec.IssuerURL
 	hcp.Spec.ServiceCIDR = hcluster.Spec.Networking.ServiceCIDR
 	hcp.Spec.PodCIDR = hcluster.Spec.Networking.PodCIDR
 	hcp.Spec.MachineCIDR = hcluster.Spec.Networking.MachineCIDR
+	hcp.Spec.NetworkType = hcluster.Spec.Networking.NetworkType
 	hcp.Spec.InfraID = hcluster.Spec.InfraID
 	hcp.Spec.DNS = hcluster.Spec.DNS
 	hcp.Spec.Services = hcluster.Spec.Services

@@ -303,13 +303,12 @@ func convertProviderConfigToIDPData(
 		if err != nil {
 			return nil, err
 		}
-
-		data.provider = &osinv1.OpenIDIdentityProvider{
+		// this is the common config that is then added on to
+		openIDProviderData := &osinv1.OpenIDIdentityProvider{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "OpenIDIdentityProvider",
 				APIVersion: osinv1.GroupVersion.String(),
 			},
-			CA:       idpVolumeMounts.ConfigMapPath(i, openIDConfig.CA.Name, "ca", corev1.ServiceAccountRootCAKey),
 			ClientID: openIDConfig.ClientID,
 			ClientSecret: configv1.StringSource{
 				StringSourceSpec: configv1.StringSourceSpec{
@@ -327,6 +326,10 @@ func convertProviderConfigToIDPData(
 				Email:             openIDConfig.Claims.Email,
 			},
 		}
+		if len(openIDConfig.CA.Name) > 0 {
+			openIDProviderData.CA = idpVolumeMounts.ConfigMapPath(i, openIDConfig.CA.Name, "ca", corev1.ServiceAccountRootCAKey)
+		}
+		data.provider = openIDProviderData
 
 		// openshift CR validating in kube-apiserver does not allow
 		// challenge-redirecting IdPs to be configured with OIDC so it is safe

@@ -310,7 +310,6 @@ func convertProviderConfigToIDPData(
 				Kind:       "OpenIDIdentityProvider",
 				APIVersion: osinv1.GroupVersion.String(),
 			},
-			CA:       idpVolumeMounts.ConfigMapPath(i, openIDConfig.CA.Name, "ca", corev1.ServiceAccountRootCAKey),
 			ClientID: openIDConfig.ClientID,
 			ClientSecret: configv1.StringSource{
 				StringSourceSpec: configv1.StringSourceSpec{
@@ -319,6 +318,9 @@ func convertProviderConfigToIDPData(
 			},
 			ExtraScopes:              openIDConfig.ExtraScopes,
 			ExtraAuthorizeParameters: openIDConfig.ExtraAuthorizeParameters,
+		}
+		if len(openIDConfig.CA.Name) > 0 {
+			openIDProviderData.CA = idpVolumeMounts.ConfigMapPath(i, openIDConfig.CA.Name, "ca", corev1.ServiceAccountRootCAKey)
 		}
 		//Handle special case for IBM Cloud's OIDC provider (need to override some fields not available in public api)
 		if configOverride != nil {

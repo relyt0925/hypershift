@@ -657,6 +657,8 @@ func reconcileHostedControlPlane(hcp *hyperv1.HostedControlPlane, hcluster *hype
 	for annotationKey := range hcluster.Annotations {
 		if annotationKey == hyperv1.DisablePKIReconciliationAnnotation {
 			hcp.Annotations[hyperv1.DisablePKIReconciliationAnnotation] = hcluster.Annotations[hyperv1.DisablePKIReconciliationAnnotation]
+		} else if annotationKey == hyperv1.OauthLoginURLOverrideAnnotation {
+			hcp.Annotations[hyperv1.OauthLoginURLOverrideAnnotation] = hcluster.Annotations[hyperv1.OauthLoginURLOverrideAnnotation]
 		} else if strings.HasPrefix(annotationKey, hyperv1.IdentityProviderOverridesAnnotationPrefix) {
 			hcp.Annotations[annotationKey] = hcluster.Annotations[annotationKey]
 		}

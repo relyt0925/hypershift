@@ -4,15 +4,16 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	configv1 "github.com/openshift/api/config/v1"
 	hyperv1 "github.com/openshift/hypershift/api/v1alpha1"
 	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/cloud/aws"
 	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/config"
 	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/manifests"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 type KubeAPIServerImages struct {
@@ -145,7 +146,6 @@ func NewKubeAPIServerParams(ctx context.Context, hcp *hyperv1.HostedControlPlane
 	}
 	params.KubeConfigRef = hcp.Spec.KubeConfig
 	params.OwnerRef = config.OwnerRefFrom(hcp)
-
 	return params
 }
 

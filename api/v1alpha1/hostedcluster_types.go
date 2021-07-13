@@ -89,7 +89,7 @@ type HostedClusterSpec struct {
 	// https://docs.openshift.com/container-platform/4.7/rest_api/config_apis/config-apis-index.html
 	// +kubebuilder:validation:Optional
 	// +optional
-	Configuration ClusterConfiguration `json:"configuration,omitempty"`
+	Configuration *ClusterConfiguration `json:"configuration,omitempty"`
 }
 
 // ServicePublishingStrategyMapping defines the service being published and  metadata about the publishing strategy.
@@ -373,9 +373,9 @@ const (
 	// healthy.
 	UnmanagedEtcdAvailable ConditionType = "UnmanagedEtcdAvailable"
 
-	// InvalidHostedClusterConfiguration indicates (if status is true) that the
-	// ClusterConfiguration specified for the HostedCluster is not valid.
-	InvalidHostedClusterConfiguration ConditionType = "InvalidConfiguration"
+	// ValidHostedClusterConfiguration indicates (if status is true) that the
+	// ClusterConfiguration specified for the HostedCluster is valid.
+	ValidHostedClusterConfiguration ConditionType = "ValidConfiguration"
 )
 
 const (

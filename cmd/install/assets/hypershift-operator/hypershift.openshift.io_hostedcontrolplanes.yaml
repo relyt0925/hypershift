@@ -44,7 +44,7 @@ spec:
                     description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                     type: string
                 type: object
-              configs:
+              configuration:
                 description: 'Configuration embeds resources that correspond to the openshift configuration API: https://docs.openshift.com/container-platform/4.7/rest_api/config_apis/config-apis-index.html'
                 properties:
                   configMapRefs:

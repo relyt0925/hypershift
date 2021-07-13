@@ -166,26 +166,20 @@ func (r *HostedControlPlaneReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// Reconcile global configurationn validation status
 	{
-		newCondition := metav1.Condition{
-			Type:               string(hyperv1.InvalidConfiguration),
-			Status:             metav1.ConditionTrue,
-			Reason:             "ValidationFailed",
+		condition := metav1.Condition{
+			Type:               string(hyperv1.ValidConfiguration),
 			ObservedGeneration: hostedControlPlane.Generation,
 		}
 		if err := config.ValidateGlobalConfig(ctx, hostedControlPlane); err != nil {
-			newCondition.Message = err.Error()
-			meta.SetStatusCondition(&hostedControlPlane.Status.Conditions, newCondition)
+			condition.Status = metav1.ConditionFalse
+			condition.Message = err.Error()
+			condition.Reason = "InvalidConfiguration"
 		} else {
-			condition := meta.FindStatusCondition(hostedControlPlane.Status.Conditions, string(hyperv1.InvalidConfiguration))
-			// Only update condition if it exists and its status is true
-			if condition != nil && condition.Status == metav1.ConditionTrue {
-				condition.Status = metav1.ConditionFalse
-				condition.Reason = "AsExpected"
-				condition.Message = "Configuration passes validation"
-				condition.ObservedGeneration = hostedControlPlane.Generation
-				meta.SetStatusCondition(&hostedControlPlane.Status.Conditions, *condition)
-			}
+			condition.Status = metav1.ConditionTrue
+			condition.Message = "Configuration passes validation"
+			condition.Reason = hyperv1.HostedClusterAsExpectedReason
 		}
+		meta.SetStatusCondition(&hostedControlPlane.Status.Conditions, condition)
 	}
 
 	// Reconcile etcd cluster status
@@ -386,8 +380,8 @@ func (r *HostedControlPlaneReconciler) update(ctx context.Context, hostedControl
 
 	// Block here if the cluster configuration does not pass validation
 	{
-		invalidConfig := meta.FindStatusCondition(hostedControlPlane.Status.Conditions, string(hyperv1.InvalidConfiguration))
-		if invalidConfig != nil && invalidConfig.Status == metav1.ConditionTrue {
+		validConfig := meta.FindStatusCondition(hostedControlPlane.Status.Conditions, string(hyperv1.ValidConfiguration))
+		if validConfig != nil && validConfig.Status == metav1.ConditionFalse {
 			r.Log.Info("Configuration is invalid, reconciliation is blocked")
 			return nil
 		}
@@ -490,7 +484,7 @@ func (r *HostedControlPlaneReconciler) update(ctx context.Context, hostedControl
 		}
 	}
 
-	globalConfig, err := config.ParseGlobalConfig(ctx, hostedControlPlane.Spec.Configuration.Items)
+	globalConfig, err := config.ParseGlobalConfig(ctx, hostedControlPlane.Spec.Configuration)
 	if err != nil {
 		return fmt.Errorf("failed to parse global config: %w", err)
 	}

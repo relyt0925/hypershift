@@ -574,43 +574,37 @@ func createFileStringSource(filepath string) configv1.StringSource {
 }
 
 func transportForCARef(ctx context.Context, kclient crclient.Client, namespace, name, key string) (http.RoundTripper, error) {
-
 	// copy default transport
 	transport := net.SetTransportDefaults(&http.Transport{
 		TLSClientConfig: &tls.Config{},
 	})
-	var roots *x509.CertPool
+
 	if len(name) == 0 {
-		var err error
-		//assume default trusted cas
-		roots, err = x509.SystemCertPool()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		cm := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: namespace,
-			},
-		}
-		if err := kclient.Get(ctx, crclient.ObjectKeyFromObject(cm), cm); err != nil {
-			return nil, err
-		}
-		caData := []byte(cm.Data[key])
-		if len(caData) == 0 {
-			caData = cm.BinaryData[key]
-		}
-		if len(caData) == 0 {
-			return nil, fmt.Errorf("config map %s/%s has no ca data at key %s", namespace, name, key)
-		}
-		roots = x509.NewCertPool()
-		if ok := roots.AppendCertsFromPEM(caData); !ok {
-			// avoid logging data that could contain keys
-			return nil, errors.New("error loading cert pool from ca data")
-		}
+		return transport, nil
+	}
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+	if err := kclient.Get(ctx, crclient.ObjectKeyFromObject(cm), cm); err != nil {
+		return nil, err
+	}
+	caData := []byte(cm.Data[key])
+	if len(caData) == 0 {
+		caData = cm.BinaryData[key]
+	}
+	if len(caData) == 0 {
+		return nil, fmt.Errorf("config map %s/%s has no ca data at key %s", namespace, name, key)
+	}
+
+	roots := x509.NewCertPool()
+	if ok := roots.AppendCertsFromPEM(caData); !ok {
+		// avoid logging data that could contain keys
+		return nil, errors.New("error loading cert pool from ca data")
 	}
 	transport.TLSClientConfig.RootCAs = roots
 	return transport, nil
-
 }

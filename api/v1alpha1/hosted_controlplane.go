@@ -72,7 +72,7 @@ type HostedControlPlaneSpec struct {
 	// Configuration embeds resources that correspond to the openshift configuration API:
 	// https://docs.openshift.com/container-platform/4.7/rest_api/config_apis/config-apis-index.html
 	// +kubebuilder:validation:Optional
-	Configuration ClusterConfiguration `json:"configs,omitempty"`
+	Configuration *ClusterConfiguration `json:"configuration,omitempty"`
 }
 
 type AvailabilityPolicy string
@@ -94,7 +94,7 @@ const (
 	EtcdAvailable               ConditionType = "EtcdAvailable"
 	KubeAPIServerAvailable      ConditionType = "KubeAPIServerAvailable"
 	InfrastructureReady         ConditionType = "InfrastructureReady"
-	InvalidConfiguration        ConditionType = "InvalidConfiguration"
+	ValidConfiguration          ConditionType = "ValidConfiguration"
 )
 
 // HostedControlPlaneStatus defines the observed state of HostedControlPlane

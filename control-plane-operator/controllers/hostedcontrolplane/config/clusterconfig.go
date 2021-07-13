@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	configv1 "github.com/openshift/api/config/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -25,10 +24,13 @@ type GlobalConfig struct {
 	Scheduler      *configv1.Scheduler
 }
 
-func ParseGlobalConfig(ctx context.Context, items []runtime.RawExtension) (GlobalConfig, error) {
+func ParseGlobalConfig(ctx context.Context, cfg *hyperv1.ClusterConfiguration) (GlobalConfig, error) {
 	globalConfig := GlobalConfig{}
+	if cfg == nil {
+		return globalConfig, nil
+	}
 	kinds := sets.NewString() // keeps track of which kinds have been found
-	for i, cfg := range items {
+	for i, cfg := range cfg.Items {
 		cfgObject, gvk, err := api.YamlSerializer.Decode(cfg.Raw, nil, nil)
 		if err != nil {
 			return globalConfig, fmt.Errorf("cannot parse configuration at index %d: %w", i, err)
@@ -66,7 +68,10 @@ func ParseGlobalConfig(ctx context.Context, items []runtime.RawExtension) (Globa
 }
 
 func ValidateGlobalConfig(ctx context.Context, hcp *hyperv1.HostedControlPlane) error {
-	gCfg, err := ParseGlobalConfig(ctx, hcp.Spec.Configuration.Items)
+	if hcp.Spec.Configuration == nil {
+		return nil
+	}
+	gCfg, err := ParseGlobalConfig(ctx, hcp.Spec.Configuration)
 	if err != nil {
 		return err
 	}

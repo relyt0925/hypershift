@@ -3,14 +3,11 @@ package oauth
 import (
 	"context"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	configv1 "github.com/openshift/api/config/v1"
 	hyperv1 "github.com/openshift/hypershift/api/v1alpha1"
 	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/config"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 const (
@@ -70,10 +67,6 @@ func NewOAuthServerParams(ctx context.Context, hcp *hyperv1.HostedControlPlane, 
 		p.Replicas = 1
 	}
 
-	log := ctrl.LoggerFrom(ctx)
-	if err := config.ExtractConfigs(hcp, []client.Object{&p.OAuth, &p.APIServer}); err != nil {
-		log.Error(err, "Errors encountered extracting configs")
-	}
 	return p
 }
 

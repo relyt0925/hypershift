@@ -85,12 +85,11 @@ type HostedClusterSpec struct {
 	// +kubebuilder:default={managementType: "Managed"}
 	Etcd EtcdSpec `json:"etcd"`
 
-	// Configs is a set of global config resources as defined in the
-	// openshift configuration API:
+	// Configuration embeds resources that correspond to the openshift configuration API:
 	// https://docs.openshift.com/container-platform/4.7/rest_api/config_apis/config-apis-index.html
-	// Each entry contains a resource kind and corresponding configuration content.
 	// +kubebuilder:validation:Optional
-	Configs []ClusterConfiguration `json:"configs,omitempty"`
+	// +optional
+	Configuration ClusterConfiguration `json:"configuration,omitempty"`
 }
 
 // ServicePublishingStrategyMapping defines the service being published and  metadata about the publishing strategy.
@@ -373,6 +372,10 @@ const (
 	// UnmanagedEtcdAvailable indicates whether a user-managed etcd cluster is
 	// healthy.
 	UnmanagedEtcdAvailable ConditionType = "UnmanagedEtcdAvailable"
+
+	// InvalidHostedClusterConfiguration indicates (if status is true) that the
+	// ClusterConfiguration specified for the HostedCluster is not valid.
+	InvalidHostedClusterConfiguration ConditionType = "InvalidConfiguration"
 )
 
 const (
@@ -441,20 +444,25 @@ type ClusterVersionStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration"`
 }
 
-// ClusterConfiguration contains a single global configuration
-// resource for a HostedCluster.
+// ClusterConfiguration contains global configuration for a HostedCluster.
 type ClusterConfiguration struct {
-	// Kind is the API kind of the configuration resource
-	// contained in Content
-	// +kubebuilder:validation:Required
-	// +required
-	Kind string `json:"kind"`
+	// SecretRefs holds references to secrets used in configuration entries
+	// so that they can be properly synced by the hypershift operator.
+	// +kubebuilder:validation:Optional
+	// +optional
+	SecretRefs []corev1.LocalObjectReference `json:"secretRefs,omitempty"`
 
-	// Content embeds the configuration resource
+	// ConfigMapRefs holds references to configmaps used in configuration entries
+	// so that they can be properly synced by the hypershift operator.
+	// +kubebuilder:validation:Optional
+	// +optional
+	ConfigMapRefs []corev1.LocalObjectReference `json:"configMapRefs,omitempty"`
+
+	// Items embeds the configuration resource
 	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Required
-	// +required
-	Content runtime.RawExtension `json:"content"`
+	// +kubebuilder:validation:Optional
+	// +optional
+	Items []runtime.RawExtension `json:"items,omitempty"`
 }
 
 // +kubebuilder:object:root=true

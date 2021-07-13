@@ -18,6 +18,7 @@ import (
 
 const (
 	kasNamedCertificateMountPathPrefix = "/etc/kubernetes/certs/named"
+	configHashAnnotation               = "kube-apiserver.hypershift.openshift.io/config-hash"
 )
 
 var (
@@ -90,10 +91,17 @@ func ReconcileKubeAPIServerDeployment(deployment *appsv1.Deployment,
 	namedCertificates []configv1.APIServerNamedServingCert,
 	cloudProviderConfigRef *corev1.LocalObjectReference,
 	images KubeAPIServerImages,
+	config *corev1.ConfigMap,
 	auditWebhookRef *corev1.LocalObjectReference,
 	kmsKPInfo string,
 	kmsKPRegion string,
 ) error {
+
+	configBytes, ok := config.Data[KubeAPIServerConfigKey]
+	if !ok {
+		return fmt.Errorf("kube apiserver configuration is not expected to be empty")
+	}
+	configHash := util.ComputeHash(configBytes)
 
 	ownerRef.ApplyTo(deployment)
 	maxSurge := intstr.FromInt(3)
@@ -112,6 +120,9 @@ func ReconcileKubeAPIServerDeployment(deployment *appsv1.Deployment,
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: kasLabels,
+				Annotations: map[string]string{
+					configHashAnnotation: configHash,
+				},
 			},
 			Spec: corev1.PodSpec{
 				AutomountServiceAccountToken: pointer.BoolPtr(false),

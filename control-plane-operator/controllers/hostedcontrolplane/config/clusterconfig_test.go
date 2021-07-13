@@ -1,12 +1,12 @@
 package config
 
 import (
+	"context"
 	"testing"
 
-	runtime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	configv1 "github.com/openshift/api/config/v1"
-	hyperv1 "github.com/openshift/hypershift/api/v1alpha1"
 )
 
 var featureGateBytes = `
@@ -18,26 +18,21 @@ spec:
   featureSet: LatencySensitive
 `
 
-func TestExtractConfig(t *testing.T) {
-	hcp := &hyperv1.HostedControlPlane{}
-	hcp.Name = "test"
-	hcp.Namespace = "foo"
-	hcp.Spec.Configs = []hyperv1.ClusterConfiguration{
+func TestParseGlobalConfig(t *testing.T) {
+	items := []runtime.RawExtension{
 		{
-			Kind: "FeatureGate",
-			Content: runtime.RawExtension{
-				Raw: []byte(featureGateBytes),
-			},
+			Raw: []byte(featureGateBytes),
 		},
 	}
 
-	featureGate := &configv1.FeatureGate{}
-
-	err := ExtractConfig(hcp, featureGate)
+	globalConfig, err := ParseGlobalConfig(context.Background(), items)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if featureGate.Spec.FeatureSet != configv1.LatencySensitive {
-		t.Errorf("unexpected featureset: %q", featureGate.Spec.FeatureSet)
+	if globalConfig.FeatureGate == nil {
+		t.Fatalf("feature gate config not found")
+	}
+	if globalConfig.FeatureGate.Spec.FeatureSet != configv1.LatencySensitive {
+		t.Errorf("unexpected featureset: %q", globalConfig.FeatureGate.Spec.FeatureSet)
 	}
 }

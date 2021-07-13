@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	configv1 "github.com/openshift/api/config/v1"
+	hyperv1 "github.com/openshift/hypershift/api/v1alpha1"
 )
 
 var featureGateBytes = `
@@ -19,13 +20,15 @@ spec:
 `
 
 func TestParseGlobalConfig(t *testing.T) {
-	items := []runtime.RawExtension{
-		{
-			Raw: []byte(featureGateBytes),
+	config := &hyperv1.ClusterConfiguration{
+		Items: []runtime.RawExtension{
+			{
+				Raw: []byte(featureGateBytes),
+			},
 		},
 	}
 
-	globalConfig, err := ParseGlobalConfig(context.Background(), items)
+	globalConfig, err := ParseGlobalConfig(context.Background(), config)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

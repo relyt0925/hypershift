@@ -92,9 +92,9 @@ func ReconcileKubeAPIServerDeployment(deployment *appsv1.Deployment,
 	cloudProviderConfigRef *corev1.LocalObjectReference,
 	images KubeAPIServerImages,
 	config *corev1.ConfigMap,
-	auditWebhookRef *corev1.LocalObjectReference,
-	kmsKPInfo string,
-	kmsKPRegion string,
+auditWebhookRef *corev1.LocalObjectReference,
+kmsKPInfo string,
+kmsKPRegion string,
 ) error {
 
 	configBytes, ok := config.Data[KubeAPIServerConfigKey]

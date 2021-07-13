@@ -4,18 +4,15 @@ import (
 	"context"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	configv1 "github.com/openshift/api/config/v1"
 	hyperv1 "github.com/openshift/hypershift/api/v1alpha1"
 	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/cloud/aws"
 	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/config"
 	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/manifests"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 type KubeAPIServerImages struct {
@@ -149,19 +146,6 @@ func NewKubeAPIServerParams(ctx context.Context, hcp *hyperv1.HostedControlPlane
 	params.KubeConfigRef = hcp.Spec.KubeConfig
 	params.OwnerRef = config.OwnerRefFrom(hcp)
 
-	cfgs := []client.Object{
-		&params.APIServer,
-		&params.Authentication,
-		&params.FeatureGate,
-		&params.Network,
-		&params.OAuth,
-		&params.Image,
-		&params.Scheduler,
-	}
-	err := config.ExtractConfigs(hcp, cfgs)
-	if err != nil {
-		log.Error(err, "Errors encountered extracting cluster configs")
-	}
 	return params
 }
 

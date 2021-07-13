@@ -18,6 +18,10 @@ import (
 	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/util"
 )
 
+const (
+	configHashAnnotation = "oauth.hypershift.openshift.io/config-hash"
+)
+
 var (
 	volumeMounts = util.PodVolumeMounts{
 		oauthContainerMain().Name: {
@@ -36,7 +40,7 @@ var (
 	}
 )
 
-func ReconcileDeployment(ctx context.Context, client client.Client, deployment *appsv1.Deployment, ownerRef config.OwnerRef, image string, deploymentConfig config.DeploymentConfig, identityProviders []configv1.IdentityProvider) error {
+func ReconcileDeployment(ctx context.Context, client client.Client, deployment *appsv1.Deployment, ownerRef config.OwnerRef, config *corev1.ConfigMap, image string, deploymentConfig config.DeploymentConfig, identityProviders []configv1.IdentityProvider) error {
 	ownerRef.ApplyTo(deployment)
 	deployment.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: oauthLabels,
@@ -54,6 +58,14 @@ func ReconcileDeployment(ctx context.Context, client client.Client, deployment *
 	for k, v := range oauthLabels {
 		deployment.Spec.Template.ObjectMeta.Labels[k] = v
 	}
+	if deployment.Spec.Template.ObjectMeta.Annotations == nil {
+		deployment.Spec.Template.ObjectMeta.Annotations = map[string]string{}
+	}
+	configBytes, ok := config.Data[OAuthServerConfigKey]
+	if !ok {
+		return fmt.Errorf("oauth server: configuration not found in configmap")
+	}
+	deployment.Spec.Template.ObjectMeta.Annotations[configHashAnnotation] = util.ComputeHash(configBytes)
 	deployment.Spec.Template.Spec = corev1.PodSpec{
 		AutomountServiceAccountToken: pointer.BoolPtr(false),
 		Containers: []corev1.Container{
@@ -143,7 +155,7 @@ func oauthVolumeServingCert() *corev1.Volume {
 
 func buildOAuthVolumeServingCert(v *corev1.Volume) {
 	v.Secret = &corev1.SecretVolumeSource{
-		SecretName: manifests.IngressCert("").Name,
+		SecretName: manifests.OpenShiftOAuthServerCert("").Name,
 	}
 }
 func oauthVolumeSessionSecret() *corev1.Volume {

@@ -32,15 +32,21 @@ type HostedControlPlaneSpec struct {
 	ServiceCIDR  string                      `json:"serviceCIDR"`
 	PodCIDR      string                      `json:"podCIDR"`
 	MachineCIDR  string                      `json:"machineCIDR"`
-	SSHKey       corev1.LocalObjectReference `json:"sshKey"`
-	InfraID      string                      `json:"infraID"`
-	Platform     PlatformSpec                `json:"platform"`
-	DNS          DNSSpec                     `json:"dns"`
+	// NetworkType specifies the SDN provider used for cluster networking.
+	NetworkType NetworkType                 `json:"networkType"`
+	SSHKey      corev1.LocalObjectReference `json:"sshKey"`
+	InfraID     string                      `json:"infraID"`
+	Platform    PlatformSpec                `json:"platform"`
+	DNS         DNSSpec                     `json:"dns"`
 
 	// ControllerAvailabilityPolicy specifies whether to run control plane controllers in HA mode
 	// Defaults to SingleReplica when not set
 	// +optional
 	ControllerAvailabilityPolicy AvailabilityPolicy `json:"controllerAvailabilityPolicy,omitempty"`
+
+	// FIPS specifies if the nodes for the cluster will be running in FIPS mode
+	// +optional
+	FIPS bool `json:"fips"`
 
 	// KubeConfig specifies the name and key for the kubeconfig secret
 	// +optional
@@ -63,12 +69,10 @@ type HostedControlPlaneSpec struct {
 	// use to store data.
 	Etcd EtcdSpec `json:"etcd"`
 
-	// Configs is a set of global config resources as defined in the
-	// openshift configuration API:
+	// Configuration embeds resources that correspond to the openshift configuration API:
 	// https://docs.openshift.com/container-platform/4.7/rest_api/config_apis/config-apis-index.html
-	// Each entry contains a resource kind and corresponding configuration content.
 	// +kubebuilder:validation:Optional
-	Configs []ClusterConfiguration `json:"configs,omitempty"`
+	Configuration ClusterConfiguration `json:"configs,omitempty"`
 }
 
 type AvailabilityPolicy string
@@ -90,6 +94,7 @@ const (
 	EtcdAvailable               ConditionType = "EtcdAvailable"
 	KubeAPIServerAvailable      ConditionType = "KubeAPIServerAvailable"
 	InfrastructureReady         ConditionType = "InfrastructureReady"
+	InvalidConfiguration        ConditionType = "InvalidConfiguration"
 )
 
 // HostedControlPlaneStatus defines the observed state of HostedControlPlane

@@ -14,27 +14,17 @@ import (
 )
 
 type KubeSchedulerParams struct {
-	FeatureGate             configv1.FeatureGate `json:"featureGate"`
-	Scheduler               configv1.Scheduler   `json:"scheduler"`
-	OwnerRef                config.OwnerRef      `json:"ownerRef"`
-	HyperkubeImage          string               `json:"hyperkubeImage"`
+	FeatureGate             *configv1.FeatureGate `json:"featureGate"`
+	Scheduler               *configv1.Scheduler   `json:"scheduler"`
+	OwnerRef                config.OwnerRef       `json:"ownerRef"`
+	HyperkubeImage          string                `json:"hyperkubeImage"`
 	config.DeploymentConfig `json:",inline"`
 }
 
-func NewKubeSchedulerParams(ctx context.Context, hcp *hyperv1.HostedControlPlane, images map[string]string) *KubeSchedulerParams {
+func NewKubeSchedulerParams(ctx context.Context, hcp *hyperv1.HostedControlPlane, images map[string]string, globalConfig config.GlobalConfig) *KubeSchedulerParams {
 	params := &KubeSchedulerParams{
-		FeatureGate: configv1.FeatureGate{
-			Spec: configv1.FeatureGateSpec{
-				FeatureGateSelection: configv1.FeatureGateSelection{
-					FeatureSet: configv1.Default,
-				},
-			},
-		},
-		Scheduler: configv1.Scheduler{
-			Spec: configv1.SchedulerSpec{
-				DefaultNodeSelector: "",
-			},
-		},
+		FeatureGate:    globalConfig.FeatureGate,
+		Scheduler:      globalConfig.Scheduler,
 		HyperkubeImage: images["hyperkube"],
 	}
 	params.Scheduling = config.Scheduling{
@@ -55,15 +45,21 @@ func NewKubeSchedulerParams(ctx context.Context, hcp *hyperv1.HostedControlPlane
 		params.Replicas = 1
 	}
 	params.OwnerRef = config.OwnerRefFrom(hcp)
-
-	log := ctrl.LoggerFrom(ctx)
-	if err := config.ExtractConfigs(hcp, []client.Object{&params.FeatureGate, &params.Scheduler}); err != nil {
-		log.Error(err, "Errors encountered extracting configs")
-	}
-
 	return params
 }
 
 func (p *KubeSchedulerParams) FeatureGates() []string {
-	return config.FeatureGates(&p.FeatureGate.Spec.FeatureGateSelection)
+	if p.FeatureGate != nil {
+		return config.FeatureGates(&p.FeatureGate.Spec.FeatureGateSelection)
+	} else {
+		return config.FeatureGates(&configv1.FeatureGateSelection{FeatureSet: configv1.Default})
+	}
+}
+
+func (p *KubeSchedulerParams) SchedulerPolicy() configv1.ConfigMapNameReference {
+	if p.Scheduler != nil {
+		return p.Scheduler.Spec.Policy
+	} else {
+		return configv1.ConfigMapNameReference{}
+	}
 }

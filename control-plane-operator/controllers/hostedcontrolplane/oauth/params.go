@@ -13,17 +13,25 @@ import (
 	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/config"
 )
 
+const (
+	defaultAccessTokenMaxAgeSeconds int32 = 86400
+)
+
 type OAuthServerParams struct {
 	OwnerRef                config.OwnerRef `json:"ownerRef"`
 	ExternalHost            string          `json:"externalHost"`
 	ExternalPort            int32           `json:"externalPort"`
+	ExternalAPIHost         string          `json:"externalAPIHost"`
+	ExternalAPIPort         int32           `json:"externalAPIPort"`
 	OAuthServerImage        string
 	config.DeploymentConfig `json:",inline"`
-	OAuth                   configv1.OAuth     `json:"oauth"`
-	APIServer               configv1.APIServer `json:"apiServer"`
+	OAuth                   *configv1.OAuth     `json:"oauth"`
+	APIServer               *configv1.APIServer `json:"apiServer"`
 }
 
 type OAuthConfigParams struct {
+	ExternalAPIHost          string
+	ExternalAPIPort          int32
 	ExternalHost             string
 	ExternalPort             int32
 	ServingCert              *corev1.Secret
@@ -33,27 +41,16 @@ type OAuthConfigParams struct {
 	AccessTokenMaxAgeSeconds int32
 }
 
-func NewOAuthServerParams(ctx context.Context, hcp *hyperv1.HostedControlPlane, images map[string]string, host string, port int32) *OAuthServerParams {
+func NewOAuthServerParams(ctx context.Context, hcp *hyperv1.HostedControlPlane, globalConfig config.GlobalConfig, images map[string]string, host string, port int32) *OAuthServerParams {
 	p := &OAuthServerParams{
 		OwnerRef:         config.OwnerRefFrom(hcp),
+		ExternalAPIHost:  hcp.Status.ControlPlaneEndpoint.Host,
+		ExternalAPIPort:  hcp.Status.ControlPlaneEndpoint.Port,
 		ExternalHost:     host,
 		ExternalPort:     port,
 		OAuthServerImage: images["oauth-server"],
-		OAuth: configv1.OAuth{
-			Spec: configv1.OAuthSpec{
-				TokenConfig: configv1.TokenConfig{
-					AccessTokenMaxAgeSeconds: 86400,
-				},
-			},
-		},
-		APIServer: configv1.APIServer{
-			Spec: configv1.APIServerSpec{
-				TLSSecurityProfile: &configv1.TLSSecurityProfile{
-					Type:         configv1.TLSProfileIntermediateType,
-					Intermediate: &configv1.IntermediateTLSProfile{},
-				},
-			},
-		},
+		OAuth:            globalConfig.OAuth,
+		APIServer:        globalConfig.APIServer,
 	}
 	p.Scheduling = config.Scheduling{
 		PriorityClass: config.DefaultPriorityClass,
@@ -80,15 +77,45 @@ func NewOAuthServerParams(ctx context.Context, hcp *hyperv1.HostedControlPlane, 
 	return p
 }
 
+func (p *OAuthServerParams) IdentityProviders() []configv1.IdentityProvider {
+	if p.OAuth != nil {
+		return p.OAuth.Spec.IdentityProviders
+	}
+	return []configv1.IdentityProvider{}
+}
+
+func (p *OAuthServerParams) AccessTokenMaxAgeSeconds() int32 {
+	if p.OAuth != nil && p.OAuth.Spec.TokenConfig.AccessTokenMaxAgeSeconds > 0 {
+		return p.OAuth.Spec.TokenConfig.AccessTokenMaxAgeSeconds
+	}
+	return defaultAccessTokenMaxAgeSeconds
+}
+
+func (p *OAuthServerParams) MinTLSVersion() string {
+	if p.APIServer != nil {
+		return config.MinTLSVersion(p.APIServer.Spec.TLSSecurityProfile)
+	}
+	return config.MinTLSVersion(nil)
+}
+
+func (p *OAuthServerParams) CipherSuites() []string {
+	if p.APIServer != nil {
+		return config.CipherSuites(p.APIServer.Spec.TLSSecurityProfile)
+	}
+	return config.CipherSuites(nil)
+}
+
 func (p *OAuthServerParams) ConfigParams(servingCert *corev1.Secret) *OAuthConfigParams {
 	return &OAuthConfigParams{
 		ExternalHost:             p.ExternalHost,
 		ExternalPort:             p.ExternalPort,
+		ExternalAPIHost:          p.ExternalAPIHost,
+		ExternalAPIPort:          p.ExternalAPIPort,
 		ServingCert:              servingCert,
-		CipherSuites:             config.CipherSuites(p.APIServer.Spec.TLSSecurityProfile),
-		MinTLSVersion:            config.MinTLSVersion(p.APIServer.Spec.TLSSecurityProfile),
-		IdentityProviders:        p.OAuth.Spec.IdentityProviders,
-		AccessTokenMaxAgeSeconds: p.OAuth.Spec.TokenConfig.AccessTokenMaxAgeSeconds,
+		CipherSuites:             p.CipherSuites(),
+		MinTLSVersion:            p.MinTLSVersion(),
+		IdentityProviders:        p.IdentityProviders(),
+		AccessTokenMaxAgeSeconds: p.AccessTokenMaxAgeSeconds(),
 	}
 }
 

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/openshift/hypershift/api/v1alpha1"
+
 	hyperapi "github.com/openshift/hypershift/api"
 	apifixtures "github.com/openshift/hypershift/api/fixtures"
 	awsinfra "github.com/openshift/hypershift/cmd/infra/aws"
@@ -40,6 +42,8 @@ type Options struct {
 	PublicZoneID       string
 	PrivateZoneID      string
 	Annotations        []string
+	NetworkType        string
+	FIPS               bool
 }
 
 func NewCreateCommand() *cobra.Command {
@@ -73,6 +77,8 @@ func NewCreateCommand() *cobra.Command {
 		InfraID:            "",
 		InstanceType:       "m4.large",
 		Annotations:        []string{},
+		NetworkType:        string(v1alpha1.OpenShiftSDN),
+		FIPS:               false,
 	}
 
 	cmd.Flags().StringVar(&opts.Namespace, "namespace", opts.Namespace, "A namespace to contain the generated resources")
@@ -90,6 +96,8 @@ func NewCreateCommand() *cobra.Command {
 	cmd.Flags().StringVar(&opts.InstanceType, "instance-type", opts.InstanceType, "Instance type for AWS instances.")
 	cmd.Flags().StringVar(&opts.BaseDomain, "base-domain", opts.BaseDomain, "The ingress base domain for the cluster")
 	cmd.Flags().StringArrayVar(&opts.Annotations, "annotations", opts.Annotations, "Annotations to apply to the hostedcluster (key=value). Can be specified multiple times.")
+	cmd.Flags().StringVar(&opts.NetworkType, "network-type", opts.NetworkType, "Enum specifying the cluster SDN provider. Supports either Calico or OpenshiftSDN.")
+	cmd.Flags().BoolVar(&opts.FIPS, "fips", opts.FIPS, "Enables FIPS mode for nodes in the cluster")
 
 	cmd.MarkFlagRequired("pull-secret")
 	cmd.MarkFlagRequired("aws-creds")
@@ -217,6 +225,8 @@ func CreateCluster(ctx context.Context, opts Options) error {
 		BaseDomain:       infra.BaseDomain,
 		PublicZoneID:     infra.PublicZoneID,
 		PrivateZoneID:    infra.PrivateZoneID,
+		NetworkType:      v1alpha1.NetworkType(opts.NetworkType),
+		FIPS:             opts.FIPS,
 		AWS: apifixtures.ExampleAWSOptions{
 			Region:                                 infra.Region,
 			Zone:                                   infra.Zone,

@@ -69,7 +69,6 @@ import (
 const (
 	finalizer                      = "hypershift.openshift.io/finalizer"
 	hostedClusterAnnotation        = "hypershift.openshift.io/cluster"
-	hostedClusterConfigLabel       = "config.hypershift.openshift.io/cluster"
 	clusterDeletionRequeueDuration = time.Duration(5 * time.Second)
 
 	// TODO (alberto): Eventually these images will be mirrored and pulled from an internal registry.
@@ -239,6 +238,40 @@ func (r *HostedClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			}
 		}
 		meta.SetStatusCondition(&hcluster.Status.Conditions, computeHostedClusterAvailability(hcluster, hcp))
+	}
+
+	// Set InvalidConfiguration condition
+	{
+		controlPlaneNamespace := manifests.HostedControlPlaneNamespace(hcluster.Namespace, hcluster.Name)
+		hcp := controlplaneoperator.HostedControlPlane(controlPlaneNamespace.Name, hcluster.Name)
+		err := r.Client.Get(ctx, client.ObjectKeyFromObject(hcp), hcp)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				hcp = nil
+			} else {
+				return ctrl.Result{}, fmt.Errorf("failed to get hostedcontrolplane: %w", err)
+			}
+		}
+		if hcp != nil {
+			invalidConfigHCPCondition := meta.FindStatusCondition(hcp.Status.Conditions, string(hyperv1.InvalidConfiguration))
+			invalidConfigCondition := meta.FindStatusCondition(hcluster.Status.Conditions, string(hyperv1.InvalidHostedClusterConfiguration))
+			if invalidConfigHCPCondition != nil && invalidConfigHCPCondition.Status == metav1.ConditionTrue {
+				cond := metav1.Condition{
+					Type:    string(hyperv1.InvalidHostedClusterConfiguration),
+					Status:  metav1.ConditionTrue,
+					Message: invalidConfigHCPCondition.Message,
+					Reason:  invalidConfigHCPCondition.Reason,
+				}
+				meta.SetStatusCondition(&hcluster.Status.Conditions, cond)
+			} else {
+				if invalidConfigCondition != nil && invalidConfigCondition.Status == metav1.ConditionTrue {
+					invalidConfigCondition.Status = metav1.ConditionFalse
+					invalidConfigCondition.Reason = "AsExpected"
+					invalidConfigCondition.Message = "Configuration is valid"
+					meta.SetStatusCondition(&hcluster.Status.Conditions, *invalidConfigCondition)
+				}
+			}
+		}
 	}
 
 	// Set Ignition Server endpoint
@@ -513,11 +546,11 @@ func (r *HostedClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Reconcile global config related configmaps and secrets
 	{
-		configMaps := &corev1.ConfigMapList{}
-		if err := r.List(ctx, configMaps, ctrlclient.MatchingLabels{hostedClusterConfigLabel: hcluster.Name}, ctrlclient.InNamespace(hcluster.Namespace)); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to list related configmaps: %w", err)
-		}
-		for _, sourceCM := range configMaps.Items {
+		for _, configMapRef := range hcluster.Spec.Configuration.ConfigMapRefs {
+			sourceCM := &corev1.ConfigMap{}
+			if err := r.Get(ctx, ctrlclient.ObjectKey{Namespace: hcluster.Namespace, Name: configMapRef.Name}, sourceCM); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to get referenced configmap %s/%s: %w", hcluster.Namespace, configMapRef.Name, err)
+			}
 			destCM := &corev1.ConfigMap{}
 			destCM.Name = sourceCM.Name
 			destCM.Namespace = controlPlaneNamespace.Name
@@ -529,14 +562,15 @@ func (r *HostedClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				destCM.Immutable = sourceCM.Immutable
 				return nil
 			}); err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to reconcile config map %s/%s: %w", destCM.Namespace, destCM.Name, err)
+				return ctrl.Result{}, fmt.Errorf("failed to reconcile referenced config map %s/%s: %w", destCM.Namespace, destCM.Name, err)
 			}
 		}
-		secrets := &corev1.SecretList{}
-		if err := r.List(ctx, secrets, ctrlclient.MatchingLabels{hostedClusterConfigLabel: hcluster.Name}, ctrlclient.InNamespace(hcluster.Namespace)); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to list related secrets: %w", err)
-		}
-		for _, sourceSecret := range secrets.Items {
+
+		for _, secretRef := range hcluster.Spec.Configuration.SecretRefs {
+			sourceSecret := &corev1.Secret{}
+			if err := r.Get(ctx, ctrlclient.ObjectKey{Namespace: hcluster.Namespace, Name: secretRef.Name}, sourceSecret); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to get referenced secret %s/%s: %w", hcluster.Namespace, secretRef.Name, err)
+			}
 			destSecret := &corev1.Secret{}
 			destSecret.Name = sourceSecret.Name
 			destSecret.Namespace = controlPlaneNamespace.Name
@@ -713,10 +747,12 @@ func reconcileHostedControlPlane(hcp *hyperv1.HostedControlPlane, hcluster *hype
 	if hcluster.Spec.AuditWebhook != nil && len(hcluster.Spec.AuditWebhook.Name) > 0 {
 		hcp.Spec.AuditWebhook = hcluster.Spec.AuditWebhook.DeepCopy()
 	}
+	hcp.Spec.FIPS = hcluster.Spec.FIPS
 	hcp.Spec.IssuerURL = hcluster.Spec.IssuerURL
 	hcp.Spec.ServiceCIDR = hcluster.Spec.Networking.ServiceCIDR
 	hcp.Spec.PodCIDR = hcluster.Spec.Networking.PodCIDR
 	hcp.Spec.MachineCIDR = hcluster.Spec.Networking.MachineCIDR
+	hcp.Spec.NetworkType = hcluster.Spec.Networking.NetworkType
 	hcp.Spec.InfraID = hcluster.Spec.InfraID
 	hcp.Spec.DNS = hcluster.Spec.DNS
 	hcp.Spec.Services = hcluster.Spec.Services
@@ -755,7 +791,7 @@ func reconcileHostedControlPlane(hcp *hyperv1.HostedControlPlane, hcluster *hype
 		hcp.Spec.ReleaseImage = hcluster.Spec.Release.Image
 	}
 
-	hcp.Spec.Configs = hcluster.Spec.Configs
+	hcp.Spec.Configuration = hcluster.Spec.Configuration
 
 	return nil
 }
@@ -1111,6 +1147,9 @@ func (r *HostedClusterReconciler) reconcileIgnitionServer(ctx context.Context, h
 					"pods/log",
 					"serviceaccounts",
 					"pods",
+					// This is needed by the MCS ignitionProvider to create an ephemeral ConfigMap
+					// with the machine config to mount it into the MCS Pod that generates the final payload.
+					"configmaps",
 				},
 				Verbs: []string{"*"},
 			},
@@ -1336,6 +1375,10 @@ func reconcileControlPlaneOperatorDeployment(deployment *appsv1.Deployment, imag
 									},
 								},
 							},
+						},
+						// needed since control plane operator runs with anyuuid scc
+						SecurityContext: &corev1.SecurityContext{
+							RunAsUser: k8sutilspointer.Int64Ptr(1000),
 						},
 						Command: []string{"/usr/bin/control-plane-operator"},
 						Args:    []string{"run", "--namespace", "$(MY_NAMESPACE)", "--deployment-name", "control-plane-operator"},

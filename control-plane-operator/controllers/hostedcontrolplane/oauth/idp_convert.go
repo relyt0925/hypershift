@@ -1,7 +1,6 @@
 package oauth
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -26,7 +25,6 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	osinv1 "github.com/openshift/api/osin/v1"
 
-	"github.com/openshift/hypershift/control-plane-operator/api"
 	"github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/util"
 )
 
@@ -51,7 +49,8 @@ type idpData struct {
 }
 
 type IDPVolumeMountInfo struct {
-	VolumeMounts util.ContainerVolumeMounts
+	Container    string
+	VolumeMounts util.PodVolumeMounts
 	Volumes      []corev1.Volume
 }
 
@@ -62,8 +61,8 @@ func (i *IDPVolumeMountInfo) ConfigMapPath(index int, configMapName, field, key 
 	v.ConfigMap = &corev1.ConfigMapVolumeSource{}
 	v.ConfigMap.Name = configMapName
 	i.Volumes = append(i.Volumes, v)
-	i.VolumeMounts[v.Name] = fmt.Sprintf("%s/idp_cm_%d_%s", IDPVolumePathPrefix, index, field)
-	return path.Join(i.VolumeMounts[v.Name], key)
+	i.VolumeMounts[i.Container][v.Name] = fmt.Sprintf("%s/idp_cm_%d_%s", IDPVolumePathPrefix, index, field)
+	return path.Join(i.VolumeMounts[i.Container][v.Name], key)
 }
 
 func (i *IDPVolumeMountInfo) SecretPath(index int, secretName, field, key string) string {
@@ -73,15 +72,18 @@ func (i *IDPVolumeMountInfo) SecretPath(index int, secretName, field, key string
 	v.Secret = &corev1.SecretVolumeSource{}
 	v.Secret.SecretName = secretName
 	i.Volumes = append(i.Volumes, v)
-	i.VolumeMounts[v.Name] = fmt.Sprintf("%s/idp_secret_%d_%s", IDPVolumePathPrefix, index, field)
-	return path.Join(i.VolumeMounts[v.Name], key)
+	i.VolumeMounts[i.Container][v.Name] = fmt.Sprintf("%s/idp_secret_%d_%s", IDPVolumePathPrefix, index, field)
+	return path.Join(i.VolumeMounts[i.Container][v.Name], key)
 }
 
 func convertIdentityProviders(ctx context.Context, identityProviders []configv1.IdentityProvider, providerOverrides map[string]*ConfigOverride, kclient crclient.Client, namespace string) ([]osinv1.IdentityProvider, *IDPVolumeMountInfo, error) {
 	converted := make([]osinv1.IdentityProvider, 0, len(identityProviders))
 	errs := []error{}
 	volumeMountInfo := &IDPVolumeMountInfo{
-		VolumeMounts: util.ContainerVolumeMounts{},
+		Container: oauthContainerMain().Name,
+		VolumeMounts: util.PodVolumeMounts{
+			oauthContainerMain().Name: util.ContainerVolumeMounts{},
+		},
 	}
 
 	for i, idp := range defaultIDPMappingMethods(identityProviders) {
@@ -94,10 +96,6 @@ func convertIdentityProviders(ctx context.Context, identityProviders []configv1.
 			errs = append(errs, fmt.Errorf("failed to apply IDP %s config: %v", idp.Name, err))
 			continue
 		}
-		encodedProvider := &bytes.Buffer{}
-		if err := api.YamlSerializer.Encode(data.provider, encodedProvider); err != nil {
-			errs = append(errs, fmt.Errorf("failed to serialize provider for IDP %s: %w", idp.Name, err))
-		}
 		converted = append(converted,
 			osinv1.IdentityProvider{
 				Name:            idp.Name,
@@ -105,7 +103,7 @@ func convertIdentityProviders(ctx context.Context, identityProviders []configv1.
 				UseAsLogin:      data.login,
 				MappingMethod:   string(idp.MappingMethod),
 				Provider: runtime.RawExtension{
-					Raw: encodedProvider.Bytes(),
+					Object: data.provider,
 				},
 			},
 		)
@@ -149,6 +147,10 @@ func convertProviderConfigToIDPData(
 		}
 
 		data.provider = &osinv1.BasicAuthPasswordIdentityProvider{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "BasicAuthPasswordIdentityProvider",
+				APIVersion: osinv1.GroupVersion.String(),
+			},
 			RemoteConnectionInfo: configv1.RemoteConnectionInfo{
 				URL: basicAuthConfig.URL,
 				CA:  idpVolumeMounts.ConfigMapPath(i, basicAuthConfig.CA.Name, "ca", corev1.ServiceAccountRootCAKey),
@@ -165,8 +167,11 @@ func convertProviderConfigToIDPData(
 		if githubConfig == nil {
 			return nil, fmt.Errorf(missingProviderFmt, providerConfig.Type)
 		}
-
-		data.provider = &osinv1.GitHubIdentityProvider{
+		provider := &osinv1.GitHubIdentityProvider{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "GitHubIdentityProvider",
+				APIVersion: osinv1.GroupVersion.String(),
+			},
 			ClientID: githubConfig.ClientID,
 			ClientSecret: configv1.StringSource{
 				StringSourceSpec: configv1.StringSourceSpec{
@@ -176,8 +181,11 @@ func convertProviderConfigToIDPData(
 			Organizations: githubConfig.Organizations,
 			Teams:         githubConfig.Teams,
 			Hostname:      githubConfig.Hostname,
-			CA:            idpVolumeMounts.ConfigMapPath(i, githubConfig.CA.Name, "ca", corev1.ServiceAccountRootCAKey),
 		}
+		if len(githubConfig.CA.Name) > 0 {
+			provider.CA = idpVolumeMounts.ConfigMapPath(i, githubConfig.CA.Name, "ca", corev1.ServiceAccountRootCAKey)
+		}
+		data.provider = provider
 		data.challenge = false
 
 	case configv1.IdentityProviderTypeGitLab:
@@ -187,6 +195,10 @@ func convertProviderConfigToIDPData(
 		}
 
 		data.provider = &osinv1.GitLabIdentityProvider{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "GitLabIdentityProvider",
+				APIVersion: osinv1.GroupVersion.String(),
+			},
 			CA:       idpVolumeMounts.ConfigMapPath(i, gitlabConfig.CA.Name, "ca", corev1.ServiceAccountRootCAKey),
 			URL:      gitlabConfig.URL,
 			ClientID: gitlabConfig.ClientID,
@@ -206,6 +218,10 @@ func convertProviderConfigToIDPData(
 		}
 
 		data.provider = &osinv1.GoogleIdentityProvider{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "GoogleIdentityProvider",
+				APIVersion: osinv1.GroupVersion.String(),
+			},
 			ClientID: googleConfig.ClientID,
 			ClientSecret: configv1.StringSource{
 				StringSourceSpec: configv1.StringSourceSpec{
@@ -222,6 +238,10 @@ func convertProviderConfigToIDPData(
 		}
 
 		data.provider = &osinv1.HTPasswdPasswordIdentityProvider{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "HTPasswdPasswordIdentityProvider",
+				APIVersion: osinv1.GroupVersion.String(),
+			},
 			File: idpVolumeMounts.SecretPath(i, providerConfig.HTPasswd.FileData.Name, "file-data", configv1.HTPasswdDataKey),
 		}
 		data.challenge = true
@@ -233,6 +253,10 @@ func convertProviderConfigToIDPData(
 		}
 
 		data.provider = &osinv1.KeystonePasswordIdentityProvider{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "KeystonePasswordIdentityProvider",
+				APIVersion: osinv1.GroupVersion.String(),
+			},
 			RemoteConnectionInfo: configv1.RemoteConnectionInfo{
 				URL: keystoneConfig.URL,
 				CA:  idpVolumeMounts.ConfigMapPath(i, keystoneConfig.CA.Name, "ca", corev1.ServiceAccountRootCAKey),
@@ -253,6 +277,10 @@ func convertProviderConfigToIDPData(
 		}
 
 		data.provider = &osinv1.LDAPPasswordIdentityProvider{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "LDAPPasswordIdentityProvider",
+				APIVersion: osinv1.GroupVersion.String(),
+			},
 			URL:    ldapConfig.URL,
 			BindDN: ldapConfig.BindDN,
 			BindPassword: configv1.StringSource{
@@ -276,9 +304,12 @@ func convertProviderConfigToIDPData(
 		if openIDConfig == nil {
 			return nil, fmt.Errorf(missingProviderFmt, providerConfig.Type)
 		}
-		// this is the common config that is then added on to
-		openIDProviderData := &osinv1.OpenIDIdentityProvider{
-			CA:       idpVolumeMounts.ConfigMapPath(i, openIDConfig.CA.Name, "ca", corev1.ServiceAccountRootCAKey),
+
+		openIDProvider := &osinv1.OpenIDIdentityProvider{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "OpenIDIdentityProvider",
+				APIVersion: osinv1.GroupVersion.String(),
+			},
 			ClientID: openIDConfig.ClientID,
 			ClientSecret: configv1.StringSource{
 				StringSourceSpec: configv1.StringSourceSpec{
@@ -306,6 +337,11 @@ func convertProviderConfigToIDPData(
 				Email:             openIDConfig.Claims.Email,
 			}
 		}
+		if len(openIDConfig.CA.Name) > 0 {
+			openIDProvider.CA = idpVolumeMounts.ConfigMapPath(i, openIDConfig.CA.Name, "ca", corev1.ServiceAccountRootCAKey)
+		}
+		data.provider = openIDProvider
+
 		// openshift CR validating in kube-apiserver does not allow
 		// challenge-redirecting IdPs to be configured with OIDC so it is safe
 		// to allow challenge-issuing flow if it's available on the OIDC side
@@ -329,6 +365,10 @@ func convertProviderConfigToIDPData(
 			return nil, fmt.Errorf(missingProviderFmt, providerConfig.Type)
 		}
 		data.provider = &osinv1.RequestHeaderIdentityProvider{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "RequestHeaderIdentityProvider",
+				APIVersion: osinv1.GroupVersion.String(),
+			},
 			LoginURL:                 requestHeaderConfig.LoginURL,
 			ChallengeURL:             requestHeaderConfig.ChallengeURL,
 			ClientCA:                 idpVolumeMounts.ConfigMapPath(i, requestHeaderConfig.ClientCA.Name, "ca", corev1.ServiceAccountRootCAKey),
@@ -533,6 +573,15 @@ func createFileStringSource(filepath string) configv1.StringSource {
 }
 
 func transportForCARef(ctx context.Context, kclient crclient.Client, namespace, name, key string) (http.RoundTripper, error) {
+	// copy default transport
+	transport := net.SetTransportDefaults(&http.Transport{
+		TLSClientConfig: &tls.Config{},
+	})
+
+	if len(name) == 0 {
+		return transport, nil
+	}
+
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -550,11 +599,6 @@ func transportForCARef(ctx context.Context, kclient crclient.Client, namespace, 
 		return nil, fmt.Errorf("config map %s/%s has no ca data at key %s", namespace, name, key)
 	}
 
-	// copy default transport
-	transport := net.SetTransportDefaults(&http.Transport{
-		TLSClientConfig: &tls.Config{},
-	})
-
 	roots := x509.NewCertPool()
 	if ok := roots.AppendCertsFromPEM(caData); !ok {
 		// avoid logging data that could contain keys
@@ -562,5 +606,4 @@ func transportForCARef(ctx context.Context, kclient crclient.Client, namespace, 
 	}
 	transport.TLSClientConfig.RootCAs = roots
 	return transport, nil
-
 }

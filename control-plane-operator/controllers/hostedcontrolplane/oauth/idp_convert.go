@@ -321,15 +321,15 @@ func convertProviderConfigToIDPData(
 		}
 		//Handle special case for IBM Cloud's OIDC provider (need to override some fields not available in public api)
 		if configOverride != nil {
-			openIDProviderData.URLs = configOverride.URLs
-			openIDProviderData.Claims = configOverride.Claims
+			openIDProvider.URLs = configOverride.URLs
+			openIDProvider.Claims = configOverride.Claims
 		} else {
 			urls, err := discoverOpenIDURLs(ctx, kclient, openIDConfig.Issuer, corev1.ServiceAccountRootCAKey, namespace, openIDConfig.CA)
 			if err != nil {
 				return nil, err
 			}
-			openIDProviderData.URLs = *urls
-			openIDProviderData.Claims = osinv1.OpenIDClaims{
+			openIDProvider.URLs = *urls
+			openIDProvider.Claims = osinv1.OpenIDClaims{
 				// There is no longer a user-facing setting for ID as it is considered unsafe
 				ID:                []string{configv1.UserIDClaim},
 				PreferredUsername: openIDConfig.Claims.PreferredUsername,
@@ -348,7 +348,7 @@ func convertProviderConfigToIDPData(
 		challengeFlowsAllowed, err := checkOIDCPasswordGrantFlow(
 			ctx,
 			kclient,
-			openIDProviderData.URLs.Token,
+			openIDProvider.URLs.Token,
 			openIDConfig.ClientID,
 			namespace,
 			openIDConfig.CA,
@@ -358,7 +358,7 @@ func convertProviderConfigToIDPData(
 			return nil, fmt.Errorf("error attempting password grant flow: %v", err)
 		}
 		data.challenge = challengeFlowsAllowed
-		data.provider = openIDProviderData
+		data.provider = openIDProvider
 	case configv1.IdentityProviderTypeRequestHeader:
 		requestHeaderConfig := providerConfig.RequestHeader
 		if requestHeaderConfig == nil {

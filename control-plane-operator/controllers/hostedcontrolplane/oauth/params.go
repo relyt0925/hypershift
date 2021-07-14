@@ -2,12 +2,12 @@ package oauth
 
 import (
 	"context"
+
 	"encoding/json"
 	osinv1 "github.com/openshift/api/osin/v1"
-	"strings"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
 	hyperv1 "github.com/openshift/hypershift/api/v1alpha1"

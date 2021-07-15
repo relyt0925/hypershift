@@ -736,6 +736,12 @@ func reconcileHostedControlPlane(hcp *hyperv1.HostedControlPlane, hcluster *hype
 			hcp.Annotations[annotationKey] = hcluster.Annotations[annotationKey]
 		} else if annotationKey == hyperv1.PortierisImageAnnotation {
 			hcp.Annotations[hyperv1.PortierisImageAnnotation] = hcluster.Annotations[hyperv1.PortierisImageAnnotation]
+		} else if annotationKey == hyperv1.KMSKPInfoAnnotation {
+			hcp.Annotations[hyperv1.KMSKPInfoAnnotation] = hcluster.Annotations[hyperv1.KMSKPInfoAnnotation]
+		} else if annotationKey == hyperv1.KMSKPRegionAnnotation {
+			hcp.Annotations[hyperv1.KMSKPRegionAnnotation] = hcluster.Annotations[hyperv1.KMSKPRegionAnnotation]
+		} else if annotationKey == hyperv1.KMSImageAnnotation {
+			hcp.Annotations[hyperv1.KMSImageAnnotation] = hcluster.Annotations[hyperv1.KMSImageAnnotation]
 		}
 	}
 

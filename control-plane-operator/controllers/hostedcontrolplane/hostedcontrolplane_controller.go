@@ -1358,6 +1358,8 @@ func (r *HostedControlPlaneReconciler) reconcileKubeAPIServer(ctx context.Contex
 			p.Images,
 			kubeAPIServerConfig,
 			p.AuditWebhookRef,
+			p.KMSKPInfo,
+			p.KMSKPRegion,
 		)
 	}); err != nil {
 		return fmt.Errorf("failed to reconcile api server deployment: %w", err)

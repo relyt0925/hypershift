@@ -21,6 +21,7 @@ type KubeAPIServerImages struct {
 	CLI                   string `json:"cli"`
 	HyperKube             string `json:"hyperKube"`
 	Portieris             string `json:"portieris"`
+	KMS                   string `json:"kms"`
 }
 
 type KubeAPIServerParams struct {
@@ -44,6 +45,8 @@ type KubeAPIServerParams struct {
 	APIServerPort        int32                        `json:"apiServerPort"`
 	KubeConfigRef        *hyperv1.KubeconfigSecretRef `json:"kubeConfigRef"`
 	AuditWebhookRef      *corev1.LocalObjectReference `json:"auditWebhookRef"`
+	KMSKPInfo            string                       `json:"kmsKPInfo"`
+	KMSKPRegion          string                       `json:"kmsKPRegion"`
 	config.DeploymentConfig
 	config.OwnerRef
 
@@ -91,7 +94,11 @@ func NewKubeAPIServerParams(ctx context.Context, hcp *hyperv1.HostedControlPlane
 		if _, ok := hcp.Annotations[hyperv1.PortierisImageAnnotation]; ok {
 			params.Images.Portieris = hcp.Annotations[hyperv1.PortierisImageAnnotation]
 		}
+		if _, ok := hcp.Annotations[hyperv1.KMSImageAnnotation]; ok {
+			params.Images.KMS = hcp.Annotations[hyperv1.KMSImageAnnotation]
+		}
 	}
+
 
 	switch hcp.Spec.Etcd.ManagementType {
 	case hyperv1.Unmanaged:
@@ -153,7 +160,15 @@ func NewKubeAPIServerParams(ctx context.Context, hcp *hyperv1.HostedControlPlane
 	if hcp.Spec.AuditWebhook != nil && len(hcp.Spec.AuditWebhook.Name) > 0 {
 		params.AuditWebhookRef = hcp.Spec.AuditWebhook
 	}
-
+	if _, ok := hcp.Annotations[hyperv1.KMSKPRegionAnnotation]; ok {
+		params.KMSKPRegion = hcp.Annotations[hyperv1.KMSKPRegionAnnotation]
+	}
+	if _, ok := hcp.Annotations[hyperv1.KMSKPInfoAnnotation]; ok {
+		params.KMSKPInfo = hcp.Annotations[hyperv1.KMSKPInfoAnnotation]
+	}
+	if _, ok := hcp.Annotations[hyperv1.KMSImageAnnotation]; ok {
+		params.Images.KMS = hcp.Annotations[hyperv1.KMSImageAnnotation]
+	}
 	switch hcp.Spec.ControllerAvailabilityPolicy {
 	case hyperv1.HighlyAvailable:
 		params.Replicas = 3

@@ -90,6 +90,12 @@ func NewKubeAPIServerParams(ctx context.Context, hcp *hyperv1.HostedControlPlane
 	} else {
 		params.APIServerPort = config.DefaultAPIServerPort
 	}
+	if _, ok := hcp.Annotations[hyperv1.PortierisImageAnnotation]; ok {
+		params.Images.Portieris = hcp.Annotations[hyperv1.PortierisImageAnnotation]
+	}
+	if _, ok := hcp.Annotations[hyperv1.KMSImageAnnotation]; ok {
+		params.Images.KMS = hcp.Annotations[hyperv1.KMSImageAnnotation]
+	}
 
 	switch hcp.Spec.Etcd.ManagementType {
 	case hyperv1.Unmanaged:

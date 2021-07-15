@@ -742,8 +742,6 @@ func reconcileHostedControlPlane(hcp *hyperv1.HostedControlPlane, hcluster *hype
 			hcp.Annotations[hyperv1.KMSKPRegionAnnotation] = hcluster.Annotations[hyperv1.KMSKPRegionAnnotation]
 		} else if annotationKey == hyperv1.KMSImageAnnotation {
 			hcp.Annotations[hyperv1.KMSImageAnnotation] = hcluster.Annotations[hyperv1.KMSImageAnnotation]
-		} else if annotationKey == hyperv1.SecurePortOverrideAnnotation {
-			hcp.Annotations[hyperv1.SecurePortOverrideAnnotation] = hcluster.Annotations[hyperv1.SecurePortOverrideAnnotation]
 		}
 	}
 

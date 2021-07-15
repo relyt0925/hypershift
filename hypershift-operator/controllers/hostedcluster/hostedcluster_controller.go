@@ -734,10 +734,7 @@ func reconcileHostedControlPlane(hcp *hyperv1.HostedControlPlane, hcluster *hype
 			hcp.Annotations[hyperv1.OauthLoginURLOverrideAnnotation] = hcluster.Annotations[hyperv1.OauthLoginURLOverrideAnnotation]
 		} else if strings.HasPrefix(annotationKey, hyperv1.IdentityProviderOverridesAnnotationPrefix) {
 			hcp.Annotations[annotationKey] = hcluster.Annotations[annotationKey]
-		} else if _, ok := hcluster.Annotations[hyperv1.SecurePortOverrideAnnotation]; ok {
-			hcp.Annotations[hyperv1.SecurePortOverrideAnnotation] = hcluster.Annotations[hyperv1.SecurePortOverrideAnnotation]
-		}
-		if _, ok := hcluster.Annotations[hyperv1.PortierisImageAnnotation]; ok {
+		} else if annotationKey == hyperv1.PortierisImageAnnotation {
 			hcp.Annotations[hyperv1.PortierisImageAnnotation] = hcluster.Annotations[hyperv1.PortierisImageAnnotation]
 		}
 		if _, ok := hcluster.Annotations[hyperv1.KMSKPInfoAnnotation]; ok {
@@ -767,6 +764,11 @@ func reconcileHostedControlPlane(hcp *hyperv1.HostedControlPlane, hcluster *hype
 	hcp.Spec.PodCIDR = hcluster.Spec.Networking.PodCIDR
 	hcp.Spec.MachineCIDR = hcluster.Spec.Networking.MachineCIDR
 	hcp.Spec.NetworkType = hcluster.Spec.Networking.NetworkType
+	if hcluster.Spec.Networking.APIServer != nil {
+		hcp.Spec.APIAdvertiseAddress = hcluster.Spec.Networking.APIServer.AdvertiseAddress
+		hcp.Spec.APIPort = hcluster.Spec.Networking.APIServer.Port
+	}
+
 	hcp.Spec.InfraID = hcluster.Spec.InfraID
 	hcp.Spec.DNS = hcluster.Spec.DNS
 	hcp.Spec.Services = hcluster.Spec.Services

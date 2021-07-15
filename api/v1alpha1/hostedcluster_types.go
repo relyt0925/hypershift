@@ -210,9 +210,9 @@ const (
 
 const (
 	PortierisImageAnnotation = "hypershift.openshift.io/portieris-image"
-KMSImageAnnotation           = "hypershift.openshift.io/kms-image"
-KMSKPInfoAnnotation          = "hypershift.openshift.io/kms-kp-info"
-KMSKPRegionAnnotation        = "hypershift.openshift.io/kms-kp-region"
+	KMSImageAnnotation       = "hypershift.openshift.io/kms-image"
+	KMSKPInfoAnnotation      = "hypershift.openshift.io/kms-kp-info"
+	KMSKPRegionAnnotation    = "hypershift.openshift.io/kms-kp-region"
 )
 
 type PlatformSpec struct {

@@ -20,6 +20,7 @@ type KubeAPIServerImages struct {
 	ClusterConfigOperator string `json:"clusterConfigOperator"`
 	CLI                   string `json:"cli"`
 	HyperKube             string `json:"hyperKube"`
+	Portieris             string `json:"portieris"`
 }
 
 type KubeAPIServerParams struct {
@@ -85,6 +86,11 @@ func NewKubeAPIServerParams(ctx context.Context, hcp *hyperv1.HostedControlPlane
 		params.APIServerPort = *hcp.Spec.APIPort
 	} else {
 		params.APIServerPort = config.DefaultAPIServerPort
+	}
+	if hcp.Annotations != nil {
+		if _, ok := hcp.Annotations[hyperv1.PortierisImageAnnotation]; ok {
+			params.Images.Portieris = hcp.Annotations[hyperv1.PortierisImageAnnotation]
+		}
 	}
 
 	switch hcp.Spec.Etcd.ManagementType {

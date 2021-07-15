@@ -1714,7 +1714,6 @@ func (r *HostedControlPlaneReconciler) generateControlPlaneManifests(ctx context
 		params.InternalAPIPort = defaultAPIServerPort
 	}
 	params.IssuerURL = hcp.Spec.IssuerURL
-
 	params.NetworkType = hcp.Spec.NetworkType
 	params.ImageRegistryHTTPSecret = generateImageRegistrySecret()
 	params.APIAvailabilityPolicy = render.SingleReplica

@@ -208,6 +208,10 @@ const (
 	IBMCloudPlatform PlatformType = "IBMCloud"
 )
 
+const (
+	PortierisImageAnnotation = "hypershift.openshift.io/portieris-image"
+)
+
 type PlatformSpec struct {
 	// Type is the underlying infrastructure provider for the cluster.
 	//
